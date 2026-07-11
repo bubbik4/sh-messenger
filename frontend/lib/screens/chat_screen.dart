@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
+import '../providers/websocket_provider.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String contactName;
@@ -14,13 +15,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
 
   void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
-    // TODO: Szyfrowanie wiadomości i wysyłka przez WebSocket
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+    
+    // Zapisanie w stanie lokalnym (optymistycznie)
+    ref.read(chatMessagesProvider.notifier).addMessage(text, isMe: true);
+    
+    // Wysłanie do serwera (Faza 3: tu będzie szyfrowanie)
+    ref.read(webSocketProvider).sendMessage(text);
+    
     _messageController.clear();
   }
 
   @override
   Widget build(BuildContext context) {
+    final messages = ref.watch(chatMessagesProvider);
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -50,12 +59,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView(
+            child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              children: [
-                _buildMessageBubble("Cześć! Klucze uzgodnione?", isMe: false),
-                _buildMessageBubble("Tak, kanał jest w pełni szyfrowany.", isMe: true),
-              ],
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final msg = messages[index];
+                final isMe = msg.startsWith("ME: ");
+                final text = msg.replaceFirst("ME: ", "").replaceFirst("OTHER: ", "");
+                return _buildMessageBubble(text, isMe: isMe);
+              },
             ),
           ),
           _buildMessageInput(),
