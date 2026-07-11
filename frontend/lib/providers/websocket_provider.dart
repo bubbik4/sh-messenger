@@ -31,20 +31,20 @@ class WebSocketService {
 }
 
 // Provider trzymający listę wiadomości
-final chatMessagesProvider = StateNotifierProvider<ChatMessagesNotifier, List<String>>((ref) {
-  final wsService = ref.watch(webSocketProvider);
-  final notifier = ChatMessagesNotifier();
+final chatMessagesProvider = NotifierProvider<ChatMessagesNotifier, List<String>>(ChatMessagesNotifier.new);
 
-  // Nasłuchiwanie na wiadomości z serwera
-  wsService.messages.listen((message) {
-    notifier.addMessage(message.toString(), isMe: false);
-  });
+class ChatMessagesNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() {
+    final wsService = ref.watch(webSocketProvider);
 
-  return notifier;
-});
+    // Nasłuchiwanie na wiadomości z serwera
+    wsService.messages.listen((message) {
+      addMessage(message.toString(), isMe: false);
+    });
 
-class ChatMessagesNotifier extends StateNotifier<List<String>> {
-  ChatMessagesNotifier() : super([]);
+    return [];
+  }
 
   void addMessage(String message, {required bool isMe}) {
     // Prosty prefiks dla demonstracji, w Fazie 3 to będzie zdeszyfrowany obiekt
