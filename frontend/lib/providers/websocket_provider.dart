@@ -1,10 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:flutter/foundation.dart';
 
 final webSocketProvider = Provider<WebSocketService>((ref) {
-  // TODO: Adres IP serwera (zostanie pobrany z konfiguracji)
+  // Automatyczne dopasowanie URL do środowiska
+  final wsUrl = kIsWeb 
+      ? 'wss://chat.bubikit.pl/ws' 
+      : 'ws://10.10.0.74:8089/ws';
+
   final channel = WebSocketChannel.connect(
-    Uri.parse('ws://10.10.0.74:8089/ws'),
+    Uri.parse(wsUrl),
   );
   return WebSocketService(channel);
 });

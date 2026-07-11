@@ -1,0 +1,27 @@
+# Etap 1: Budowanie aplikacji Flutter Web
+FROM ghcr.io/cirruslabs/flutter:stable AS builder
+
+WORKDIR /app
+
+# Skopiowanie całego kodu frontendu do kontenera
+COPY frontend/ ./
+
+# Pobranie zależności
+RUN flutter pub get
+
+# Budowanie wersji web (release, optymalizacja CanvasKit/HTML)
+RUN flutter build web --release
+
+# Etap 2: Lekki serwer Nginx do udostępniania plików
+FROM nginx:alpine
+
+# Usunięcie domyślnej zawartości HTML z Nginxa
+RUN rm -rf /usr/share/nginx/html/*
+
+# Skopiowanie zbudowanej strony z etapu buildera do serwera Nginx
+COPY --from=builder /app/build/web /usr/share/nginx/html
+
+# Podmiana konfigu na nasz (routing i WebSocket proxy)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
