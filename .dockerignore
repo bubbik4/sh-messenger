@@ -1,0 +1,18 @@
+.git
+.gitignore
+.dockerignore
+.idea/
+.vscode/
+
+# Flutter/Dart
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/pubspec.lock
+**/*.log
+
+# Backend Go
+**/backend/bin/
