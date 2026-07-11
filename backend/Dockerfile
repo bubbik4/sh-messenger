@@ -7,6 +7,9 @@ WORKDIR /app
 # Kopiujemy wszystkie pliki do kontenera
 COPY . .
 
+# Dodajemy git, który jest potrzebny do pobierania modułów Go z GitHuba
+RUN apk add --no-cache git
+
 # Pobieramy zaleznosci (go mod tidy wygeneruje go.sum i pobierze co trzeba)
 RUN go mod tidy
 
