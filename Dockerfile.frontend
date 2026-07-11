@@ -1,6 +1,10 @@
 # Etap 1: Budowanie aplikacji Flutter Web
 FROM ghcr.io/cirruslabs/flutter:stable AS builder
 
+USER root
+# Obejście problemu z uprawnieniami git/flutter w kontenerze
+RUN git config --global --add safe.directory '*'
+
 WORKDIR /app
 
 # Skopiowanie całego kodu frontendu do kontenera
