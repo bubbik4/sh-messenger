@@ -2,13 +2,14 @@
 FROM ghcr.io/cirruslabs/flutter:stable AS builder
 
 USER root
-# Obejście problemu z uprawnieniami git/flutter w kontenerze
-RUN git config --global --add safe.directory '*'
-
 WORKDIR /app
 
 # Skopiowanie całego kodu frontendu do kontenera
 COPY frontend/ ./
+
+# Nadanie uprawnień domyślnemu użytkownikowi kontenera 'cirrus'
+RUN chown -R cirrus:cirrus /app
+USER cirrus
 
 # Pobranie zależności
 RUN flutter pub get
