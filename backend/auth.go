@@ -54,6 +54,11 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast updated user list to all connected clients
+	if users, err := GetAllUsers(); err == nil {
+		globalHub.Broadcast(WsEvent{Type: "user_list", Users: users})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(AuthResponse{
 		Token:   tokenString,
@@ -83,9 +88,11 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	// Aktualizacja klucza publicznego, jeśli urządzenie wygenerowało nowy (np. logowanie na nowej przeglądarce)
 	if req.PublicKey != "" && req.PublicKey != user.PublicKey {
 		_, err = DB.Exec(r.Context(), "UPDATE users SET public_key = $1 WHERE id = $2", req.PublicKey, user.ID)
-		if err != nil {
-			// Ignorujemy błąd zapisu, ale logujemy
-			// log.Printf("Błąd aktualizacji klucza publicznego: %v", err)
+		if err == nil {
+			// Broadcast updated user list to all connected clients
+			if users, err := GetAllUsers(); err == nil {
+				globalHub.Broadcast(WsEvent{Type: "user_list", Users: users})
+			}
 		}
 	}
 

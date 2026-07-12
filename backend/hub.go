@@ -55,3 +55,11 @@ func (h *Hub) SendToUser(username string, message WsEvent) bool {
 	}
 	return true
 }
+
+func (h *Hub) Broadcast(message WsEvent) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, client := range h.clients {
+		client.Conn.WriteJSON(message)
+	}
+}

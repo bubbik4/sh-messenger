@@ -109,7 +109,12 @@ class WsService {
     _sendJson({'type': 'get_users'});
   }
 
-  Future<void> sendMessage(String receiverUsername, String plaintext, String receiverPublicKey) async {
+  Future<void> sendMessage(String receiverUsername, String plaintext, String fallbackReceiverPublicKey) async {
+    // Pobieramy najświeższy klucz z pamięci lub używamy przekazanego, jeśli z jakiegoś powodu go brak
+    final receiverPublicKey = _publicKeys[receiverUsername] ?? fallbackReceiverPublicKey;
+
+    if (receiverPublicKey.isEmpty) return; // Użytkownik usunięty lub klucz pusty
+
     final encrypted = await _cryptoService.encryptMessage(plaintext, receiverPublicKey);
     
     // Zapisujemy najpierw własną wiadomość do bazy lokalnej (nie zaszyfrowaną, bo my jesteśmy nadawcą)
