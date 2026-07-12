@@ -68,6 +68,69 @@ class ApiService {
     return false;
   }
 
+  Future<bool> adminLogin(String username, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'username': username,
+        'password': password,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['is_admin'] == true) {
+        await _saveAuthData(data['token'], username);
+        await _cryptoService.getOrGeneratePublicKey();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<List<dynamic>> getUsersAdmin() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/users'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    return [];
+  }
+
+  Future<bool> deleteUser(String username) async {
+    final token = await getToken();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/users?username=$username'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> changePassword(String username, String newPassword) async {
+    final token = await getToken();
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/change-password'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'username': username,
+        'new_password': newPassword,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
   Future<void> logout() async {
     await _storage.delete(key: _jwtKey);
     await _storage.delete(key: _usernameKey);

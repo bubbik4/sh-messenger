@@ -55,7 +55,10 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(AuthResponse{Token: tokenString})
+	json.NewEncoder(w).Encode(AuthResponse{
+		Token:   tokenString,
+		IsAdmin: false,
+	})
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +87,10 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(AuthResponse{Token: tokenString})
+	json.NewEncoder(w).Encode(AuthResponse{
+		Token:   tokenString,
+		IsAdmin: user.IsAdmin,
+	})
 }
 
 func generateJWT(username string) (string, error) {

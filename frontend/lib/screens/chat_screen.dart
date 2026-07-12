@@ -95,6 +95,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
+          if (widget.receiverPublicKey.isEmpty)
+            Container(
+              width: double.infinity,
+              color: Colors.redAccent.withOpacity(0.2),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: const Text(
+                'Użytkownik został usunięty. Konwersacja w trybie tylko do odczytu.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              ),
+            ),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -107,7 +118,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           ),
-          _buildMessageInput(),
+          if (widget.receiverPublicKey.isNotEmpty) _buildMessageInput(),
         ],
       ),
     );

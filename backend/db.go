@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var DB *pgxpool.Pool
@@ -43,6 +44,7 @@ func createTables() error {
 			username VARCHAR(50) UNIQUE NOT NULL,
 			password_hash TEXT NOT NULL,
 			public_key TEXT NOT NULL DEFAULT '',
+			is_admin BOOLEAN DEFAULT FALSE,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
 		`CREATE TABLE IF NOT EXISTS messages (
@@ -57,6 +59,7 @@ func createTables() error {
 		// Migracje: dodawanie kolumn jeśli tabela już istniała bez nich
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT NOT NULL DEFAULT '';`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;`,
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS encrypted_aes_key TEXT NOT NULL DEFAULT '';`,
 	}
 
@@ -77,7 +80,7 @@ func CreateUser(username, passwordHash, publicKey string) error {
 
 func GetUserByUsername(username string) (*User, error) {
 	var user User
-	err := DB.QueryRow(context.Background(), "SELECT id, username, password_hash, public_key FROM users WHERE username = $1", username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.PublicKey)
+	err := DB.QueryRow(context.Background(), "SELECT id, username, password_hash, public_key, is_admin FROM users WHERE username = $1", username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.PublicKey, &user.IsAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +88,7 @@ func GetUserByUsername(username string) (*User, error) {
 }
 
 func GetAllUsers() ([]User, error) {
-	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key FROM users")
+	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key, is_admin FROM users")
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +97,7 @@ func GetAllUsers() ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.PublicKey); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.PublicKey, &u.IsAdmin); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -135,4 +138,43 @@ func GetUndeliveredMessages(receiverID int) ([]WsMessage, error) {
 func MarkMessagesAsDelivered(receiverID int) error {
 	_, err := DB.Exec(context.Background(), "UPDATE messages SET is_delivered = true WHERE receiver_id = $1 AND is_delivered = false", receiverID)
 	return err
+}
+
+func DeleteUser(username string) error {
+	user, err := GetUserByUsername(username)
+	if err != nil {
+		return err
+	}
+	
+	// Usuń najpierw wiadomości powiązane z użytkownikiem (jako nadawca lub odbiorca)
+	_, err = DB.Exec(context.Background(), "DELETE FROM messages WHERE sender_id = $1 OR receiver_id = $1", user.ID)
+	if err != nil {
+		return err
+	}
+	
+	// Następnie usuń samo konto użytkownika
+	_, err = DB.Exec(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
+	return err
+}
+
+func UpdateUserPassword(username, passwordHash string) error {
+	_, err := DB.Exec(context.Background(), "UPDATE users SET password_hash = $1 WHERE username = $2", passwordHash, username)
+	return err
+}
+
+func SeedAdmin() {
+	user, err := GetUserByUsername("admin")
+	if err != nil || user == nil {
+		// Admin nie istnieje, tworzymy
+		hash, _ := bcrypt.GenerateFromPassword([]byte("152247"), bcrypt.DefaultCost)
+		_, err := DB.Exec(context.Background(), "INSERT INTO users (username, password_hash, public_key, is_admin) VALUES ($1, $2, $3, $4)", "admin", string(hash), "", true)
+		if err != nil {
+			log.Printf("Błąd podczas tworzenia konta admina: %v", err)
+		} else {
+			log.Println("Pomyślnie utworzono domyślne konto administratora.")
+		}
+	} else if !user.IsAdmin {
+		// Użytkownik istnieje, ale nie jest adminem - nadajemy uprawnienia
+		_, _ = DB.Exec(context.Background(), "UPDATE users SET is_admin = true WHERE username = 'admin'")
+	}
 }

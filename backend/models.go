@@ -9,6 +9,7 @@ type User struct {
 	Username     string    `json:"username"`
 	PasswordHash string    `json:"-"` // Nie wysyłamy hasła w JSON
 	PublicKey    string    `json:"public_key"`
+	IsAdmin      bool      `json:"is_admin"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -30,7 +31,8 @@ type AuthRequest struct {
 }
 
 type AuthResponse struct {
-	Token string `json:"token"`
+	Token   string `json:"token"`
+	IsAdmin bool   `json:"is_admin"`
 }
 
 // Struktury dla protokołu WebSocket

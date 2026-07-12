@@ -40,10 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ref.read(authStateProvider.notifier).set(true);
         ref.read(currentUsernameProvider.notifier).set(username);
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ContactsScreen()),
-          );
+          Navigator.pushReplacementNamed(context, '/contacts');
         }
       } else {
         setState(() {

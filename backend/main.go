@@ -14,6 +14,9 @@ func main() {
 	}
 	defer DB.Close()
 
+	// Inicjalizacja konta administratora
+	SeedAdmin()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -43,6 +46,18 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "sh-messenger backend is running"})
 	})
+
+	// Routing HTTP dla Admina
+	mux.HandleFunc("/api/admin/users", adminMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			handleAdminGetUsers(w, r)
+		} else if r.Method == http.MethodDelete {
+			handleAdminDeleteUser(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/api/admin/change-password", adminMiddleware(handleAdminChangePassword))
 
 	// Endpoint WebSocket
 	mux.HandleFunc("/ws", handleWebSocket)
