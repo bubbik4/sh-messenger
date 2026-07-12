@@ -157,4 +157,27 @@ class ApiService {
       return false;
     }
   }
+  Future<void> changePassword(String oldPassword, String newPassword) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('Brak tokenu. Zaloguj się ponownie.');
+    }
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/change_password'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      final err = jsonDecode(response.body);
+      throw Exception(err['message'] ?? 'Nie udało się zmienić hasła (status ${response.statusCode})');
+    }
+  }
 }

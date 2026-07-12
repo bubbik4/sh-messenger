@@ -13,6 +13,42 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isLoading = false;
+  bool _isChangingPassword = false;
+  final TextEditingController _oldPasswordController = TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+
+  Future<void> _changePassword() async {
+    final oldPass = _oldPasswordController.text;
+    final newPass = _newPasswordController.text;
+
+    if (oldPass.isEmpty || newPass.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wypełnij oba pola')));
+      return;
+    }
+
+    setState(() {
+      _isChangingPassword = true;
+    });
+
+    try {
+      await ref.read(apiServiceProvider).changePassword(oldPass, newPass);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hasło zostało zmienione')));
+        _oldPasswordController.clear();
+        _newPasswordController.clear();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isChangingPassword = false;
+        });
+      }
+    }
+  }
 
   Future<void> _toggleVisibility(bool val) async {
     setState(() {
@@ -110,6 +146,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             value: isVisible,
                             onChanged: _toggleVisibility,
                           ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Zmiana hasła',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _oldPasswordController,
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        hintText: 'Stare hasło',
+                        prefixIcon: Icon(Icons.lock_outline, color: Colors.grey),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _newPasswordController,
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        hintText: 'Nowe hasło',
+                        prefixIcon: Icon(Icons.lock, color: Colors.grey),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _isChangingPassword ? null : _changePassword,
+                      child: _isChangingPassword
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Zmień hasło'),
+                    ),
                   ],
                 ),
               ),

@@ -179,3 +179,69 @@ func handleUpdateVisibility(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"success"}`))
 }
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
+func handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || len(authHeader) < 8 {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+	tokenString := authHeader[7:]
+
+	username, err := verifyJWT(tokenString)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.OldPassword == "" || req.NewPassword == "" {
+		http.Error(w, "Missing fields", http.StatusBadRequest)
+		return
+	}
+
+	// Pobranie starego hasha
+	var currentHash string
+	err = db.QueryRow("SELECT password_hash FROM users WHERE username = $1", username).Scan(&currentHash)
+	if err != nil {
+		log.Printf("Błąd DB przy pobieraniu hasha dla zmiany hasła: %v", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(req.OldPassword)); err != nil {
+		http.Error(w, "Invalid old password", http.StatusUnauthorized)
+		return
+	}
+
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Error hashing password", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = db.Exec("UPDATE users SET password_hash = $1 WHERE username = $2", string(newHash), username)
+	if err != nil {
+		log.Printf("Błąd DB przy zapisywaniu nowego hasła: %v", err)
+		http.Error(w, "Error updating password", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"success"}`))
+}
