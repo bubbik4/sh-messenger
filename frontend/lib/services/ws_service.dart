@@ -36,6 +36,7 @@ class WsService {
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      await _channel!.ready;
 
       _channel!.stream.listen(
         (message) {
@@ -49,6 +50,7 @@ class WsService {
           print('WebSocket error: $error');
           _scheduleReconnect();
         },
+        cancelOnError: true,
       );
 
       _sendJson({
@@ -78,7 +80,11 @@ class WsService {
 
   void _sendJson(Map<String, dynamic> data) {
     if (_channel != null) {
-      _channel!.sink.add(jsonEncode(data));
+      try {
+        _channel!.sink.add(jsonEncode(data));
+      } catch (e) {
+        print('Błąd podczas wysyłania na WebSocket: $e');
+      }
     }
   }
 
