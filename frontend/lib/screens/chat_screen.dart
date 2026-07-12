@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
 import '../providers.dart';
 import '../services/storage_service.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+import '../services/api_service.dart';
+import '../services/crypto_service.dart';
 import '../services/ws_service.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -93,6 +98,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     
     _loadMessages();
     _scrollToBottom();
+  }
+
+  Future<void> _sendImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    if (image == null) return;
+    
+    // Pokazujemy loader globalny jeśli wysyłamy duże pliki, na razie zróbmy prosto
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Szyfrowanie i wysyłanie...')));
+
+    try {
+      final bytes = await image.readAsBytes();
+      final crypto = CryptoService();
+      final encryptedData = await crypto.encryptBytesSymmetric(bytes);
+      
+      final String aesKey = encryptedData['aes_key'];
+      final List<int> encryptedBytes = encryptedData['encrypted_bytes'];
+      
+      final apiService = ref.read(apiServiceProvider);
+      final fileId = await apiService.uploadFile(encryptedBytes);
+      
+      if (fileId != null) {
+        final msgPayload = '[IMG_E2E]:{"file_id":"$fileId","aes_key":"$aesKey"}';
+        await ref.read(wsServiceProvider).sendMessage(
+          widget.receiverUsername,
+          msgPayload,
+          widget.receiverPublicKey,
+        );
+        _loadMessages();
+        _scrollToBottom();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wysłano zdjęcie!')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Błąd uploadu')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Błąd wysyłania: $e')));
+    }
   }
 
   @override
@@ -228,11 +270,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildMessageBubble(String text, {required bool isMe}) {
+    final bool isImage = text.startsWith('[IMG_E2E]:');
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: isImage ? const EdgeInsets.all(4) : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isMe ? AppTheme.primaryBlueDark : AppTheme.cardColor.withValues(alpha: 0.8),
           borderRadius: BorderRadius.only(
@@ -243,10 +287,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           boxShadow: AppTheme.elevatedShadow,
         ),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
-        ),
+        child: isImage 
+            ? ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(12),
+                  topRight: const Radius.circular(12),
+                  bottomLeft: Radius.circular(isMe ? 12 : 0),
+                  bottomRight: Radius.circular(isMe ? 0 : 12),
+                ),
+                child: _EncryptedImageBubble(payload: text, apiService: ref.read(apiServiceProvider)),
+              )
+            : Text(
+                text,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+              ),
       ),
     );
   }
@@ -286,6 +340,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           const SizedBox(width: 12),
           Container(
             decoration: BoxDecoration(
+              color: AppTheme.cardColor.withValues(alpha: 0.8),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.attach_file, color: Colors.white54),
+              onPressed: _sendImage,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
               color: AppTheme.primaryBlue,
               shape: BoxShape.circle,
               boxShadow: AppTheme.elevatedShadow,
@@ -298,5 +363,67 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ],
       ),
     );
+  }
+}
+
+class _EncryptedImageBubble extends StatefulWidget {
+  final String payload;
+  final ApiService apiService;
+
+  const _EncryptedImageBubble({
+    required this.payload,
+    required this.apiService,
+  });
+
+  @override
+  State<_EncryptedImageBubble> createState() => _EncryptedImageBubbleState();
+}
+
+class _EncryptedImageBubbleState extends State<_EncryptedImageBubble> {
+  Uint8List? _imageBytes;
+  bool _loading = true;
+  bool _error = false;
+  final _cryptoService = CryptoService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    try {
+      final jsonStr = widget.payload.substring('[IMG_E2E]:'.length);
+      final data = jsonDecode(jsonStr);
+      final fileId = data['file_id'];
+      final aesKey = data['aes_key'];
+
+      final encryptedBytes = await widget.apiService.downloadFile(fileId);
+      if (encryptedBytes == null) throw Exception('Download failed');
+
+      final decryptedBytes = await _cryptoService.decryptBytesSymmetric(encryptedBytes, aesKey);
+      
+      if (mounted) {
+        setState(() {
+          _imageBytes = Uint8List.fromList(decryptedBytes);
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = true;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const SizedBox(height: 150, width: 150, child: Center(child: CircularProgressIndicator()));
+    if (_error) return const SizedBox(height: 150, width: 150, child: Center(child: Icon(Icons.broken_image, color: Colors.white54)));
+    if (_imageBytes != null) return Image.memory(_imageBytes!, width: 200, fit: BoxFit.cover);
+    return const SizedBox.shrink();
   }
 }

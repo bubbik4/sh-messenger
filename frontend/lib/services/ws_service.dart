@@ -28,9 +28,12 @@ class WsService {
   Function(List<Map<String, dynamic>>)? onUsersUpdated;
   Function(List<Map<String, dynamic>>)? onSearchResults;
   Function()? onNewMessage;
+  Function(String, bool)? onUserStatusChanged;
 
   Timer? _reconnectTimer;
   Timer? _pingTimer;
+
+  Timer? _pongTimeoutTimer;
 
   Future<void> connect() async {
     final token = await _apiService.getToken();
@@ -61,8 +64,16 @@ class WsService {
       });
 
       _pingTimer?.cancel();
+      _pongTimeoutTimer?.cancel();
       _pingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
         _sendJson({'type': 'ping'});
+        
+        // Czekaj 10 sekund na odpowiedź PONG lub dowolną inną wiadomość
+        _pongTimeoutTimer?.cancel();
+        _pongTimeoutTimer = Timer(const Duration(seconds: 10), () {
+          print('Brak odpowiedzi od serwera (PING timeout). Zamykanie połączenia.');
+          _channel?.sink.close();
+        });
       });
     } catch (e) {
       print('WebSocket connection failed: $e');
@@ -73,6 +84,7 @@ class WsService {
   void _scheduleReconnect() {
     _channel = null;
     _pingTimer?.cancel();
+    _pongTimeoutTimer?.cancel();
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 5), () {
       print('Próba ponownego połączenia WebSocket...');
@@ -96,7 +108,21 @@ class WsService {
     final data = jsonDecode(messageStr);
     final type = data['type'];
 
-    if (type == 'auth_success') {
+    // Otrzymaliśmy dowolną wiadomość - serwer żyje
+    _pongTimeoutTimer?.cancel();
+
+    if (type == 'pong') {
+      return; // Tylko resetujemy timeout, brak innej akcji
+    } else if (type == 'user_status_change') {
+      final usersList = data['users'] as List<dynamic>? ?? [];
+      for (var u in usersList) {
+        final username = u['username'];
+        final isOnline = u['is_online'] == true;
+        if (onUserStatusChanged != null) {
+          onUserStatusChanged!(username, isOnline);
+        }
+      }
+    } else if (type == 'auth_success') {
       print('Autoryzacja udana, synchronizacja wiadomości...');
       _sendJson({'type': 'sync_messages'});
       getUsers();

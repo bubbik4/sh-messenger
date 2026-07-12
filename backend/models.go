@@ -11,6 +11,7 @@ type User struct {
 	PublicKey    string    `json:"public_key"`
 	IsAdmin      bool      `json:"is_admin"`
 	IsVisible    bool      `json:"is_visible"`
+	IsOnline     bool      `json:"is_online"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 

@@ -10,8 +10,12 @@ import 'screens/admin_login_screen.dart';
 import 'screens/admin_dashboard.dart';
 import 'services/storage_service.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  await Firebase.initializeApp();
   
   // Inicjalizacja zaszyfrowanej bazy lokalnej (Hive)
   final storageService = StorageService();

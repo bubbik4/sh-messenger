@@ -102,4 +102,43 @@ class CryptoService {
     
     return utf8.decode(plaintextBytes);
   }
+
+  /// Szyfruje dowolne dane surowe nowym, losowym kluczem symetrycznym AES
+  Future<Map<String, dynamic>> encryptBytesSymmetric(List<int> data) async {
+    final secretKey = await _cipher.newSecretKey();
+    final secretBox = await _cipher.encrypt(data, secretKey: secretKey);
+    final keyBytes = await secretKey.extractBytes();
+    
+    final combined = [...secretBox.nonce, ...secretBox.mac.bytes, ...secretBox.cipherText];
+    return {
+      'encrypted_bytes': combined,
+      'aes_key': base64Encode(keyBytes),
+    };
+  }
+
+  /// Deszyfruje surowe dane przekazanym kluczem symetrycznym AES
+  Future<List<int>> decryptBytesSymmetric(List<int> combined, String aesKeyBase64) async {
+    final keyBytes = base64Decode(aesKeyBase64);
+    final secretKey = SecretKey(keyBytes);
+
+    if (combined.length < 12 + 16) {
+      throw Exception("Nieprawidłowy format zaszyfrowanego pliku");
+    }
+    
+    final nonce = combined.sublist(0, 12);
+    final macBytes = combined.sublist(12, 28);
+    final ciphertext = combined.sublist(28);
+    
+    final secretBox = SecretBox(
+      ciphertext,
+      nonce: nonce,
+      mac: Mac(macBytes),
+    );
+    
+    final plaintextBytes = await _cipher.decrypt(
+      secretBox,
+      secretKey: secretKey,
+    );
+    return plaintextBytes;
+  }
 }

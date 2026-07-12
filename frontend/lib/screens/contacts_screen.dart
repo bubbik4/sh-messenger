@@ -4,6 +4,7 @@ import '../theme.dart';
 import '../providers.dart';
 import '../services/ws_service.dart';
 import '../services/storage_service.dart';
+import '../services/fcm_service.dart';
 import 'chat_screen.dart';
 
 class ContactsScreen extends ConsumerStatefulWidget {
@@ -16,12 +17,14 @@ class ContactsScreen extends ConsumerStatefulWidget {
 class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final StorageService _storageService = StorageService();
+  final FCMService _fcmService = FCMService();
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
 
   @override
   void initState() {
     super.initState();
+    _fcmService.initFCM();
     // Inicjujemy połączenie WS po zalogowaniu
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final wsService = ref.read(wsServiceProvider);
@@ -30,6 +33,23 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           ref.read(contactsProvider.notifier).set(users);
         }
       };
+      wsService.onUserStatusChanged = (username, isOnline) {
+        if (mounted) {
+          ref.read(contactsProvider.notifier).updateStatus(username, isOnline);
+          
+          // Aktualizujemy też _searchResults lokalnie jeśli tam jest ten użytkownik
+          setState(() {
+            for (int i = 0; i < _searchResults.length; i++) {
+              if (_searchResults[i]['username'] == username) {
+                final updatedUser = Map<String, dynamic>.from(_searchResults[i]);
+                updatedUser['is_online'] = isOnline;
+                _searchResults[i] = updatedUser;
+              }
+            }
+          });
+        }
+      };
+
       wsService.onSearchResults = (users) {
         if (mounted) {
           setState(() {
@@ -97,6 +117,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           combinedContacts.add({
              'username': roomId,
              'public_key': savedPubKey,
+             'is_online': false, // domyślnie false z bazy lokalnej dopóki nie pobierzemy statusu z serwera
           });
         }
       }
@@ -170,20 +191,42 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                       final user = combinedContacts[index];
                 final username = user['username'] as String;
                 final publicKey = user['public_key'] as String?;
+                final isOnline = user['is_online'] == true;
                 
                 // Nie pokazuj nas samych na liście kontaktów do czatu
                 if (username == myUsername) return const SizedBox.shrink();
 
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.2),
-                    child: Text(
-                      username.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold),
-                    ),
+                  leading: Stack(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.2),
+                        child: Text(
+                          username.substring(0, 1).toUpperCase(),
+                          style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      if (isOnline)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.greenAccent,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppTheme.backgroundDark, width: 2),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   title: Text(username, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Dotknij, aby rozpocząć szyfrowany czat', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  subtitle: Text(
+                    isOnline ? 'Aktywny(a) teraz' : 'Offline', 
+                    style: TextStyle(color: isOnline ? Colors.greenAccent.withValues(alpha: 0.8) : Colors.white54, fontSize: 12)
+                  ),
                   onTap: () {
                     if (publicKey == null) {
                       ScaffoldMessenger.of(context).showSnackBar(

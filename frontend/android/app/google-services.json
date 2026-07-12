@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "866396199744",
+    "project_id": "twill-chat-79550",
+    "storage_bucket": "twill-chat-79550.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:866396199744:android:b7acbab8d4f05e701538a5",
+        "android_client_info": {
+          "package_name": "pl.bubikit.twillchat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtlLwfkTpI4P_uwuVXvD_VDL0mzKTMrwQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

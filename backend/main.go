@@ -48,17 +48,25 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Routing HTTP
+	initFirebase()
+
+	// Routing HTTP dla Niezalogowanych
 	mux.HandleFunc("/api/register", handleRegister)
 	mux.HandleFunc("/api/login", handleLogin)
+	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "sh-messenger backend is running"})
+	})
+
+	// Routing HTTP dla Zalogowanych
 	mux.HandleFunc("/api/change_password", handleChangePassword)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "sh-messenger backend is running"})
 	})
-
-	// Routing HTTP dla Zalogowanych (Ustawienia)
 	mux.HandleFunc("/api/settings/visibility", handleUpdateVisibility)
+	mux.HandleFunc("/api/upload", handleFileUpload)
+	mux.HandleFunc("/api/download/", handleFileDownload)
+	mux.HandleFunc("/api/fcm/token", handleFCMToken)
 
 	// Routing HTTP dla Admina
 	mux.HandleFunc("/api/admin/users", adminMiddleware(func(w http.ResponseWriter, r *http.Request) {

@@ -33,6 +33,9 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD}
       - PORT=8080
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/serviceAccountKey.json
+    volumes:
+      - ./secrets/serviceAccountKey.json:/app/serviceAccountKey.json:ro
 
   frontend:
     build:

@@ -1,4 +1,4 @@
-package com.example.frontend
+package pl.bubikit.twillchat
 
 import io.flutter.embedding.android.FlutterActivity
 

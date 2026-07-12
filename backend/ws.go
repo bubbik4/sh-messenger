@@ -28,6 +28,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Nowy klient połączony przez WebSocket. Oczekiwanie na autoryzację...")
 
+	const pongWait = 60 * time.Second
+	ws.SetReadDeadline(time.Now().Add(pongWait))
+	ws.SetPongHandler(func(string) error { ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
 	for {
 		var event WsEvent
 		err := ws.ReadJSON(&event)
@@ -35,6 +39,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Klient rozłączony: %v", err)
 			break
 		}
+		
+		// Reset read deadline on any JSON message as well
+		ws.SetReadDeadline(time.Now().Add(pongWait))
 
 		if !isAuthenticated {
 			if event.Type == "auth" && event.Token != "" {
@@ -70,12 +77,18 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Błąd pobierania użytkowników: %v", err)
 				continue
 			}
+			for i := range users {
+				users[i].IsOnline = globalHub.IsUserOnline(users[i].Username)
+			}
 			client.WriteJSON(WsEvent{Type: "user_list", Users: users})
 
 		case "search_users":
 			if event.SearchQuery != "" {
 				users, err := SearchUser(event.SearchQuery)
 				if err == nil {
+					for i := range users {
+						users[i].IsOnline = globalHub.IsUserOnline(users[i].Username)
+					}
 					client.WriteJSON(WsEvent{Type: "search_results", Users: users})
 				}
 			}
@@ -84,6 +97,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if len(event.Usernames) > 0 {
 				users, err := GetUsersByUsernames(event.Usernames)
 				if err == nil {
+					for i := range users {
+						users[i].IsOnline = globalHub.IsUserOnline(users[i].Username)
+					}
 					client.WriteJSON(WsEvent{Type: "specific_users_list", Users: users})
 				}
 			}
@@ -128,6 +144,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			if delivered {
 				MarkMessagesAsDelivered(receiver.ID)
+			} else {
+				// Użytkownik jest offline, wyślij powiadomienie Push
+				sendPushNotification(receiver.Username, sender.Username)
 			}
 		}
 	}

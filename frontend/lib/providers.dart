@@ -32,6 +32,18 @@ class ContactsNotifier extends Notifier<List<Map<String, dynamic>>> {
   @override
   List<Map<String, dynamic>> build() => [];
   void set(List<Map<String, dynamic>> val) => state = val;
+
+  void updateStatus(String username, bool isOnline) {
+    final newState = [...state];
+    for (int i = 0; i < newState.length; i++) {
+      if (newState[i]['username'] == username) {
+        final updatedUser = Map<String, dynamic>.from(newState[i]);
+        updatedUser['is_online'] = isOnline;
+        newState[i] = updatedUser;
+      }
+    }
+    state = newState;
+  }
 }
 final contactsProvider = NotifierProvider<ContactsNotifier, List<Map<String, dynamic>>>(ContactsNotifier.new);
 

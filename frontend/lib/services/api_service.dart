@@ -178,4 +178,49 @@ class ApiService {
       throw Exception(err['message'] ?? 'Nie udało się zmienić hasła (status ${response.statusCode})');
     }
   }
+
+  Future<String?> uploadFile(List<int> bytes) async {
+    final token = await getToken();
+    if (token == null) return null;
+
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
+    request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: 'encrypted_blob.bin'));
+
+    try {
+      final response = await request.send();
+      if (response.statusCode == 200) {
+        final respStr = await response.stream.bytesToString();
+        final json = jsonDecode(respStr);
+        return json['file_id'];
+      } else {
+        print('Błąd uploadu: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Wyjątek uploadu: $e');
+      return null;
+    }
+  }
+
+  Future<List<int>?> downloadFile(String fileId) async {
+    final token = await getToken();
+    if (token == null) return null;
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/download/$fileId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      } else {
+        print('Błąd downloadu: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Wyjątek downloadu: $e');
+      return null;
+    }
+  }
 }
