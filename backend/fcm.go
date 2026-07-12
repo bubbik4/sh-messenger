@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
@@ -16,6 +17,7 @@ var fcmClient *messaging.Client
 // userTokens przechowuje tokeny FCM przypisane do danego użytkownika
 // W prostej wersji przechowujemy w pamięci, podobnie jak użytkowników.
 var userTokens = make(map[string]string)
+var fcmMutex sync.RWMutex
 
 func initFirebase() {
 	app, err := firebase.NewApp(context.Background(), nil)
@@ -69,9 +71,9 @@ func handleFCMToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Token != "" {
-		mutex.Lock()
+		fcmMutex.Lock()
 		userTokens[username] = req.Token
-		mutex.Unlock()
+		fcmMutex.Unlock()
 		log.Printf("Zapisano token FCM dla użytkownika: %s", username)
 	}
 
@@ -84,9 +86,9 @@ func sendPushNotification(toUsername, senderUsername string) {
 		return
 	}
 
-	mutex.RLock()
+	fcmMutex.RLock()
 	token, ok := userTokens[toUsername]
-	mutex.RUnlock()
+	fcmMutex.RUnlock()
 
 	if !ok || token == "" {
 		return
