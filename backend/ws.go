@@ -59,7 +59,8 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// Obsługa zdarzeń PO autoryzacji
 		switch event.Type {
 		case "ping":
-			// Ignorujemy (służy tylko do podtrzymania połączenia)
+			// Zwracamy pong, żeby serwery proxy (np. Nginx) wiedziały, że backend żyje
+			client.WriteJSON(WsEvent{Type: "pong"})
 			continue
 
 		case "get_users":
