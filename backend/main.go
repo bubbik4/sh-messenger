@@ -19,19 +19,36 @@ func main() {
 		port = "8080"
 	}
 
+	// Middleware do obsługi CORS
+	corsMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+			if r.Method == "OPTIONS" {
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	mux := http.NewServeMux()
+
 	// Routing HTTP
-	http.HandleFunc("/api/register", handleRegister)
-	http.HandleFunc("/api/login", handleLogin)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/register", handleRegister)
+	mux.HandleFunc("/api/login", handleLogin)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "sh-messenger backend is running"})
 	})
 
 	// Endpoint WebSocket
-	http.HandleFunc("/ws", handleWebSocket)
+	mux.HandleFunc("/ws", handleWebSocket)
 
 	log.Printf("Serwer startuje na porcie %s...", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
 		log.Fatalf("Błąd serwera: %v", err)
 	}
 }
