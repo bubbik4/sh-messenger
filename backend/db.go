@@ -42,7 +42,7 @@ func createTables() error {
 			id SERIAL PRIMARY KEY,
 			username VARCHAR(50) UNIQUE NOT NULL,
 			password_hash TEXT NOT NULL,
-			public_key TEXT NOT NULL,
+			public_key TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
 		`CREATE TABLE IF NOT EXISTS messages (
@@ -50,10 +50,13 @@ func createTables() error {
 			sender_id INT REFERENCES users(id),
 			receiver_id INT REFERENCES users(id),
 			encrypted_content TEXT NOT NULL,
-			encrypted_aes_key TEXT NOT NULL,
+			encrypted_aes_key TEXT NOT NULL DEFAULT '',
 			is_delivered BOOLEAN DEFAULT FALSE,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+		// Migracje: dodawanie kolumn jeśli tabela już istniała bez nich
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT NOT NULL DEFAULT '';`,
+		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS encrypted_aes_key TEXT NOT NULL DEFAULT '';`,
 	}
 
 	for _, query := range queries {
