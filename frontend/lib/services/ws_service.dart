@@ -76,13 +76,6 @@ class WsService {
     });
   }
 
-  void disconnect() {
-    _pingTimer?.cancel();
-    _reconnectTimer?.cancel();
-    _channel?.sink.close();
-    _channel = null;
-  }
-
   void _sendJson(Map<String, dynamic> data) {
     if (_channel != null) {
       _channel!.sink.add(jsonEncode(data));
@@ -219,6 +212,8 @@ class WsService {
   }
 
   void disconnect() {
+    _pingTimer?.cancel();
+    _reconnectTimer?.cancel();
     _channel?.sink.close();
     _channel = null;
   }
