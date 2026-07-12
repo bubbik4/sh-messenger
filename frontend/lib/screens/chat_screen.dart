@@ -23,18 +23,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final StorageService _storageService = StorageService();
   List<Map> _messages = [];
   String _myUsername = '';
+  late final dynamic _wsService; // Use dynamic or WsService depending on imports
 
   @override
   void initState() {
     super.initState();
     _myUsername = ref.read(currentUsernameProvider) ?? '';
+    _wsService = ref.read(wsServiceProvider);
     _loadMessages();
 
     // Rejestrujemy nasłuch na nowe wiadomości (żeby ekran się odświeżał na żywo)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final wsService = ref.read(wsServiceProvider);
-      _oldCallback = wsService.onNewMessage;
-      wsService.onNewMessage = () {
+      _oldCallback = _wsService.onNewMessage;
+      _wsService.onNewMessage = () {
         if (mounted) _loadMessages();
         if (_oldCallback != null) _oldCallback!();
       };
@@ -45,7 +46,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
-    ref.read(wsServiceProvider).onNewMessage = _oldCallback;
+    _wsService.onNewMessage = _oldCallback;
     super.dispose();
   }
 
@@ -121,10 +122,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   width: double.infinity,
                   color: Colors.orangeAccent.withValues(alpha: 0.2),
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  child: const Text(
-                    'Klucz tożsamości użytkownika uległ zmianie! Zweryfikuj odcisk palca (fingerprint) przed dalszym pisaniem.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Klucz tożsamości użytkownika uległ zmianie! Zweryfikuj odcisk palca (fingerprint) przed dalszym pisaniem.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          ref.read(wsServiceProvider).acceptNewKey(widget.receiverUsername);
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                        child: const Text('Akceptuj nowy klucz', style: TextStyle(color: Colors.white)),
+                      )
+                    ],
                   ),
                 );
               }

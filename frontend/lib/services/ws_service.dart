@@ -70,7 +70,8 @@ class WsService {
       _sendJson({'type': 'sync_messages'});
       getUsers();
     } else if (type == 'user_list' || type == 'specific_users_list' || type == 'search_results') {
-      final users = List<Map<String, dynamic>>.from(data['users']);
+      final usersList = data['users'] as List<dynamic>? ?? [];
+      final users = List<Map<String, dynamic>>.from(usersList);
       for (var u in users) {
         await _processIncomingPublicKey(u['username'], u['public_key']);
       }
@@ -119,19 +120,31 @@ class WsService {
     }
   }
 
+  final Map<String, String> _pendingKeys = {};
+
   Future<void> _processIncomingPublicKey(String username, String newKey) async {
     final oldKey = _storageService.getPeerPublicKey(username);
     if (oldKey != null && oldKey != newKey) {
       // MITM WARNING
       print('OSTRZEŻENIE MITM: Klucz dla $username się zmienił!');
       ref.read(mitmWarningsProvider.notifier).setWarning(username, true);
-      // Nie aktualizujemy _publicKeys, używamy starego
+      _pendingKeys[username] = newKey;
       _publicKeys[username] = oldKey;
     } else {
       if (oldKey == null) {
         await _storageService.savePeerPublicKey(username, newKey);
       }
       _publicKeys[username] = newKey;
+      ref.read(mitmWarningsProvider.notifier).setWarning(username, false);
+    }
+  }
+
+  Future<void> acceptNewKey(String username) async {
+    final newKey = _pendingKeys[username];
+    if (newKey != null) {
+      await _storageService.savePeerPublicKey(username, newKey);
+      _publicKeys[username] = newKey;
+      _pendingKeys.remove(username);
       ref.read(mitmWarningsProvider.notifier).setWarning(username, false);
     }
   }
