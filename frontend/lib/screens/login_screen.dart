@@ -37,8 +37,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
 
       if (success) {
-        ref.read(authStateProvider.notifier).state = true;
-        ref.read(currentUsernameProvider.notifier).state = username;
+        ref.read(authStateProvider.notifier).set(true);
+        ref.read(currentUsernameProvider.notifier).set(username);
         if (mounted) {
           Navigator.pushReplacement(
             context,

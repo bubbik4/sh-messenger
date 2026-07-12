@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
 import '../providers.dart';
 import '../services/storage_service.dart';
+import '../services/ws_service.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String receiverUsername;

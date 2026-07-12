@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
 import '../providers.dart';
+import '../services/ws_service.dart';
 import 'chat_screen.dart';
 
 class ContactsScreen extends ConsumerStatefulWidget {
@@ -20,7 +21,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       final wsService = ref.read(wsServiceProvider);
       wsService.onUsersUpdated = (users) {
         if (mounted) {
-          ref.read(contactsProvider.notifier).state = users;
+          ref.read(contactsProvider.notifier).set(users);
         }
       };
       // Gdyby przyszła jakaś wiadomość w tle (odśwież listę, notyfikację itp.)

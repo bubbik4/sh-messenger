@@ -1,15 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'services/api_service.dart';
-import 'services/ws_service.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService();
 });
 
-// WsService jest już w ws_service.dart jako wsServiceProvider, ale możemy scentralizować stan tutaj
+class AuthStateNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool val) => state = val;
+}
+final authStateProvider = NotifierProvider<AuthStateNotifier, bool>(AuthStateNotifier.new);
 
-final authStateProvider = StateProvider<bool>((ref) => false);
-final currentUsernameProvider = StateProvider<String?>((ref) => null);
+class CurrentUsernameNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? val) => state = val;
+}
+final currentUsernameProvider = NotifierProvider<CurrentUsernameNotifier, String?>(CurrentUsernameNotifier.new);
 
-// Lista kontaktów
-final contactsProvider = StateProvider<List<Map<String, dynamic>>>((ref) => []);
+class ContactsNotifier extends Notifier<List<Map<String, dynamic>>> {
+  @override
+  List<Map<String, dynamic>> build() => [];
+  void set(List<Map<String, dynamic>> val) => state = val;
+}
+final contactsProvider = NotifierProvider<ContactsNotifier, List<Map<String, dynamic>>>(ContactsNotifier.new);
