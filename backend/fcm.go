@@ -54,12 +54,11 @@ func handleFCMToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := verifyJWT(tokenParts[1])
+	username, err := verifyJWT(tokenParts[1])
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
-	username := claims.Username
 
 	var req struct {
 		Token string `json:"token"`
