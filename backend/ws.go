@@ -58,6 +58,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		// Obsługa zdarzeń PO autoryzacji
 		switch event.Type {
+		case "ping":
+			// Ignorujemy (służy tylko do podtrzymania połączenia)
+			continue
+
 		case "get_users":
 			users, err := GetVisibleUsers()
 			if err != nil {

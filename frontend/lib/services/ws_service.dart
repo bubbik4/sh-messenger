@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_service.dart';
@@ -26,31 +27,60 @@ class WsService {
   Function(List<Map<String, dynamic>>)? onSearchResults;
   Function()? onNewMessage;
 
+  Timer? _reconnectTimer;
+  Timer? _pingTimer;
+
   Future<void> connect() async {
     final token = await _apiService.getToken();
     if (token == null) return;
 
-    _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+    try {
+      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
-    // Oczekujemy na wiadomości
-    _channel!.stream.listen(
-      (message) {
-        _handleMessage(message.toString());
-      },
-      onDone: () {
-        print('WebSocket disconnected');
-        // Tutaj można dodać logikę reconnect
-      },
-      onError: (error) {
-        print('WebSocket error: $error');
-      },
-    );
+      _channel!.stream.listen(
+        (message) {
+          _handleMessage(message.toString());
+        },
+        onDone: () {
+          print('WebSocket disconnected');
+          _scheduleReconnect();
+        },
+        onError: (error) {
+          print('WebSocket error: $error');
+          _scheduleReconnect();
+        },
+      );
 
-    // Wysyłamy autoryzację jako pierwszy pakiet
-    _sendJson({
-      'type': 'auth',
-      'token': token,
+      _sendJson({
+        'type': 'auth',
+        'token': token,
+      });
+
+      _pingTimer?.cancel();
+      _pingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+        _sendJson({'type': 'ping'});
+      });
+    } catch (e) {
+      print('WebSocket connection failed: $e');
+      _scheduleReconnect();
+    }
+  }
+
+  void _scheduleReconnect() {
+    _channel = null;
+    _pingTimer?.cancel();
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 5), () {
+      print('Próba ponownego połączenia WebSocket...');
+      connect();
     });
+  }
+
+  void disconnect() {
+    _pingTimer?.cancel();
+    _reconnectTimer?.cancel();
+    _channel?.sink.close();
+    _channel = null;
   }
 
   void _sendJson(Map<String, dynamic> data) {
