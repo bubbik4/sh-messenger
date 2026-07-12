@@ -180,7 +180,7 @@ func handleUpdateVisibility(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"success"}`))
 }
 
-type ChangePasswordRequest struct {
+type UserChangePasswordRequest struct {
 	OldPassword string `json:"old_password"`
 	NewPassword string `json:"new_password"`
 }
@@ -204,7 +204,7 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req ChangePasswordRequest
+	var req UserChangePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
