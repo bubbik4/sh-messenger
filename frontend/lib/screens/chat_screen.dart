@@ -21,9 +21,11 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final StorageService _storageService = StorageService();
+  final ScrollController _scrollController = ScrollController();
   List<Map> _messages = [];
   String _myUsername = '';
   late final dynamic _wsService; // Use dynamic or WsService depending on imports
+  int? _showTimestampForMessageIndex;
 
   @override
   void initState() {
@@ -47,13 +49,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void dispose() {
     _wsService.onNewMessage = _oldCallback;
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  String _formatTimestamp(String timestamp) {
+    final date = DateTime.parse(timestamp).toLocal();
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   void _loadMessages() {
     setState(() {
       _messages = _storageService.getMessagesForRoom(widget.receiverUsername);
     });
+    _scrollToBottom();
   }
 
   Future<void> _sendMessage() async {
@@ -71,6 +92,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     
     _loadMessages();
+    _scrollToBottom();
   }
 
   @override
@@ -146,13 +168,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(16),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final msgData = _messages[index];
                 final isMe = msgData['senderId'] == _myUsername;
                 final text = msgData['message'] as String;
-                return _buildMessageBubble(text, isMe: isMe);
+                final timestamp = msgData['timestamp'] as String;
+                final showTimestamp = _showTimestampForMessageIndex == index;
+
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (_showTimestampForMessageIndex == index) {
+                        _showTimestampForMessageIndex = null;
+                      } else {
+                        _showTimestampForMessageIndex = index;
+                      }
+                    });
+                  },
+                  child: Column(
+                    crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                    children: [
+                      _buildMessageBubble(text, isMe: isMe),
+                      if (showTimestamp)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            bottom: 16,
+                            left: isMe ? 0 : 16,
+                            right: isMe ? 16 : 0,
+                          ),
+                          child: Text(
+                            _formatTimestamp(timestamp),
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
               },
             ),
           ),

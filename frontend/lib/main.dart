@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme.dart';
+import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/contacts_screen.dart';
@@ -34,7 +35,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.darkTheme,
       initialRoute: '/',
       routes: {
-        '/': (context) => const LoginScreen(),
+        '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/contacts': (context) => const ContactsScreen(),
@@ -45,3 +46,4 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
