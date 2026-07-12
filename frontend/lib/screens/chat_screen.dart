@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
-import '../providers/websocket_provider.dart';
+import '../providers.dart';
+import '../services/storage_service.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
-  final String contactName;
-  const ChatScreen({super.key, required this.contactName});
+  final String receiverUsername;
+  final String receiverPublicKey;
+  const ChatScreen({
+    super.key,
+    required this.receiverUsername,
+    required this.receiverPublicKey,
+  });
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -13,23 +19,53 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final StorageService _storageService = StorageService();
+  List<Map> _messages = [];
+  String _myUsername = '';
 
-  void _sendMessage() {
+  @override
+  void initState() {
+    super.initState();
+    _myUsername = ref.read(currentUsernameProvider) ?? '';
+    _loadMessages();
+
+    // Rejestrujemy nasłuch na nowe wiadomości (żeby ekran się odświeżał na żywo)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final wsService = ref.read(wsServiceProvider);
+      // Przechwytujemy oryginalny callback, by go przywrócić w razie czego
+      final oldCallback = wsService.onNewMessage;
+      wsService.onNewMessage = () {
+        if (mounted) _loadMessages();
+        if (oldCallback != null) oldCallback();
+      };
+    });
+  }
+
+  void _loadMessages() {
+    setState(() {
+      _messages = _storageService.getMessagesForRoom(widget.receiverUsername);
+    });
+  }
+
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     
-    // Zapisanie w stanie lokalnym (optymistycznie)
-    ref.read(chatMessagesProvider.notifier).addMessage(text, isMe: true);
-    
-    // Wysłanie do serwera (Faza 3: tu będzie szyfrowanie)
-    ref.read(webSocketProvider).sendMessage(text);
-    
     _messageController.clear();
+    
+    // WsService szyfruje wiadomość (wewnątrz używa algorytmu AES-256 z kluczem ECDH) 
+    // i wysyła na WebSocket. Zapisuje też do lokalnego Hive.
+    await ref.read(wsServiceProvider).sendMessage(
+      widget.receiverUsername,
+      text,
+      widget.receiverPublicKey,
+    );
+    
+    _loadMessages();
   }
 
   @override
   Widget build(BuildContext context) {
-    final messages = ref.watch(chatMessagesProvider);
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -37,13 +73,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             CircleAvatar(
               radius: 16,
               backgroundColor: AppTheme.primaryBlue,
-              child: Text(widget.contactName[0], style: const TextStyle(fontSize: 14)),
+              child: Text(widget.receiverUsername[0].toUpperCase(), style: const TextStyle(fontSize: 14)),
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.contactName, style: const TextStyle(fontSize: 16)),
+                Text(widget.receiverUsername, style: const TextStyle(fontSize: 16)),
                 const Row(
                   children: [
                     Icon(Icons.lock, size: 12, color: Colors.greenAccent),
@@ -61,11 +97,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: messages.length,
+              itemCount: _messages.length,
               itemBuilder: (context, index) {
-                final msg = messages[index];
-                final isMe = msg.startsWith("ME: ");
-                final text = msg.replaceFirst("ME: ", "").replaceFirst("OTHER: ", "");
+                final msgData = _messages[index];
+                final isMe = msgData['senderId'] == _myUsername;
+                final text = msgData['message'] as String;
                 return _buildMessageBubble(text, isMe: isMe);
               },
             ),
@@ -129,6 +165,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   borderSide: BorderSide.none,
                 ),
               ),
+              onSubmitted: (_) => _sendMessage(),
             ),
           ),
           const SizedBox(width: 12),

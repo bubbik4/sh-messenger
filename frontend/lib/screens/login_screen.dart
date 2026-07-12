@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
-import 'chat_list_screen.dart';
+import '../providers.dart';
+import 'contacts_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -12,17 +13,54 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
 
-  void _login() {
+  Future<void> _submit(bool isRegister) async {
     final username = _usernameController.text.trim();
-    if (username.isEmpty) return;
+    final password = _passwordController.text.trim();
+    if (username.isEmpty || password.isEmpty) return;
 
-    // TODO: Zapis lokalny, generowanie kluczy X25519 (Faza 3)
-    
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const ChatListScreen()),
-    );
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      bool success;
+      if (isRegister) {
+        success = await apiService.register(username, password);
+      } else {
+        success = await apiService.login(username, password);
+      }
+
+      if (success) {
+        ref.read(authStateProvider.notifier).state = true;
+        ref.read(currentUsernameProvider.notifier).state = username;
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ContactsScreen()),
+          );
+        }
+      } else {
+        setState(() {
+          _errorMessage = isRegister ? 'Błąd rejestracji' : 'Błędny login lub hasło';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Błąd połączenia z serwerem: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -68,14 +106,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         prefixIcon: Icon(Icons.person_outline),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _login,
-                        child: const Text('Wejdź'),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Hasło',
+                        prefixIcon: Icon(Icons.key),
                       ),
                     ),
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 16),
+                      Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                    ],
+                    const SizedBox(height: 24),
+                    if (_isLoading)
+                      const CircularProgressIndicator()
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => _submit(false),
+                            child: const Text('Zaloguj'),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: () => _submit(true),
+                            child: const Text('Zarejestruj się'),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
