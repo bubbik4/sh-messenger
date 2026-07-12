@@ -47,34 +47,37 @@ class ApiService {
   }
 
   Future<bool> login(String username, String password) async {
+    // Generujemy lub pobieramy lokalny klucz publiczny PRZED logowaniem
+    final publicKey = await _cryptoService.getOrGeneratePublicKey();
+
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'username': username,
         'password': password,
+        'public_key': publicKey,
       }),
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       await _saveAuthData(data['token'], username);
-      
-      // Upewniamy się, że klucz istnieje (lub generujemy, jeśli to np. świeża apka po reinstalacji, 
-      // chociaż to mogłoby sprawić problemy z odkodowaniem starych wiadomości - na razie to omijamy)
-      await _cryptoService.getOrGeneratePublicKey();
       return true;
     }
     return false;
   }
 
   Future<bool> adminLogin(String username, String password) async {
+    final publicKey = await _cryptoService.getOrGeneratePublicKey();
+
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'username': username,
         'password': password,
+        'public_key': publicKey,
       }),
     );
 
@@ -82,7 +85,6 @@ class ApiService {
       final data = jsonDecode(response.body);
       if (data['is_admin'] == true) {
         await _saveAuthData(data['token'], username);
-        await _cryptoService.getOrGeneratePublicKey();
         return true;
       }
     }

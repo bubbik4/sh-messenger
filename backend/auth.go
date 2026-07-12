@@ -80,6 +80,15 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Aktualizacja klucza publicznego, jeśli urządzenie wygenerowało nowy (np. logowanie na nowej przeglądarce)
+	if req.PublicKey != "" && req.PublicKey != user.PublicKey {
+		_, err = DB.Exec(r.Context(), "UPDATE users SET public_key = $1 WHERE id = $2", req.PublicKey, user.ID)
+		if err != nil {
+			// Ignorujemy błąd zapisu, ale logujemy
+			// log.Printf("Błąd aktualizacji klucza publicznego: %v", err)
+		}
+	}
+
 	tokenString, err := generateJWT(req.Username)
 	if err != nil {
 		http.Error(w, "Error generating token", http.StatusInternalServerError)
