@@ -48,7 +48,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				isAuthenticated = true
 				client = &Client{Conn: ws, Username: username}
 				globalHub.Register(client)
-				ws.WriteJSON(WsEvent{Type: "auth_success"})
+				client.WriteJSON(WsEvent{Type: "auth_success"})
 			} else {
 				log.Println("Oczekiwano eventu auth. Rozłączanie.")
 				break
@@ -64,13 +64,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Błąd pobierania użytkowników: %v", err)
 				continue
 			}
-			ws.WriteJSON(WsEvent{Type: "user_list", Users: users})
+			client.WriteJSON(WsEvent{Type: "user_list", Users: users})
 
 		case "sync_messages":
 			user, _ := GetUserByUsername(client.Username)
 			msgs, err := GetUndeliveredMessages(user.ID)
 			if err == nil && len(msgs) > 0 {
-				ws.WriteJSON(WsEvent{Type: "sync_messages", Messages: msgs})
+				client.WriteJSON(WsEvent{Type: "sync_messages", Messages: msgs})
 				MarkMessagesAsDelivered(user.ID)
 			}
 
