@@ -10,12 +10,19 @@ import 'screens/admin_login_screen.dart';
 import 'screens/admin_dashboard.dart';
 import 'services/storage_service.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await Firebase.initializeApp();
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      debugPrint("Firebase init error: $e");
+    }
+  }
   
   // Inicjalizacja zaszyfrowanej bazy lokalnej (Hive)
   final storageService = StorageService();
