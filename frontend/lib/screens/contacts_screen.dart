@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
 import '../providers.dart';
 import '../services/ws_service.dart';
+import '../services/storage_service.dart';
 import 'chat_screen.dart';
 
 class ContactsScreen extends ConsumerStatefulWidget {
@@ -13,6 +14,11 @@ class ContactsScreen extends ConsumerStatefulWidget {
 }
 
 class _ContactsScreenState extends ConsumerState<ContactsScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  final StorageService _storageService = StorageService();
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _isSearching = false;
+
   @override
   void initState() {
     super.initState();
@@ -24,12 +30,26 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           ref.read(contactsProvider.notifier).set(users);
         }
       };
+      wsService.onSearchResults = (users) {
+        if (mounted) {
+          setState(() {
+            _searchResults = users;
+            _isSearching = false;
+          });
+        }
+      };
       // Gdyby przyszła jakaś wiadomość w tle (odśwież listę, notyfikację itp.)
       wsService.onNewMessage = () {
         // TODO: Update unread counters or re-sort contacts
       };
       
-      wsService.connect();
+      wsService.connect().then((_) {
+         // Po zalogowaniu pobieramy najświeższe klucze do ukrytych kontaktów z historii
+         final oldRoomIds = _storageService.getChattedRoomIds();
+         if (oldRoomIds.isNotEmpty) {
+           wsService.getSpecificUsers(oldRoomIds);
+         }
+      });
     });
   }
 
@@ -41,8 +61,45 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final contacts = ref.watch(contactsProvider);
+    final publicContacts = ref.watch(contactsProvider);
     final myUsername = ref.watch(currentUsernameProvider);
+
+    // Budujemy wspólną listę: najpierw wyniki wyszukiwania, potem reszta bez duplikatów
+    final Set<String> _seenUsernames = {myUsername ?? ''};
+    final List<Map<String, dynamic>> combinedContacts = [];
+
+    // 1. Dodajemy wyniki wyszukiwania
+    for (var u in _searchResults) {
+      if (!_seenUsernames.contains(u['username'])) {
+        _seenUsernames.add(u['username']);
+        combinedContacts.add(u);
+      }
+    }
+
+    // 2. Dodajemy publiczne kontakty + te ukryte, do których już mamy historię (przyszły z getSpecificUsers i są w _publicKeys)
+    // Jednak w naszym przypadku wszystkie powiadomienia (w tym specific_users_list) wpadają do _publicKeys, ale onUsersUpdated tylko dla publicznych.
+    // Dlatego możemy na razie użyć po prostu publicContacts, oraz dodać tych z lokalnej bazy (jeśli mamy ich klucze publiczne).
+    for (var u in publicContacts) {
+      if (!_seenUsernames.contains(u['username'])) {
+        _seenUsernames.add(u['username']);
+        combinedContacts.add(u);
+      }
+    }
+    
+    // 3. Dodajemy z historii lokalnej
+    final oldRoomIds = _storageService.getChattedRoomIds();
+    for (var roomId in oldRoomIds) {
+      if (!_seenUsernames.contains(roomId)) {
+        final savedPubKey = _storageService.getPeerPublicKey(roomId);
+        if (savedPubKey != null) {
+          _seenUsernames.add(roomId);
+          combinedContacts.add({
+             'username': roomId,
+             'public_key': savedPubKey,
+          });
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -56,13 +113,54 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           ),
         ],
       ),
-      body: contacts.isEmpty
-          ? const Center(child: Text('Brak dostępnych kontaktów', style: TextStyle(color: Colors.white54)))
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: contacts.length,
-              itemBuilder: (context, index) {
-                final user = contacts[index];
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Wyszukaj dokładną nazwę konta...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: () {
+                    final q = _searchController.text.trim();
+                    if (q.isNotEmpty) {
+                      setState(() {
+                        _isSearching = true;
+                      });
+                      ref.read(wsServiceProvider).searchUsers(q);
+                    } else {
+                      setState(() {
+                         _searchResults.clear();
+                      });
+                    }
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onSubmitted: (q) {
+                 if (q.trim().isNotEmpty) {
+                    setState(() {
+                      _isSearching = true;
+                    });
+                    ref.read(wsServiceProvider).searchUsers(q.trim());
+                 }
+              },
+            ),
+          ),
+          if (_isSearching) const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+          Expanded(
+            child: combinedContacts.isEmpty
+                ? const Center(child: Text('Brak dostępnych kontaktów', style: TextStyle(color: Colors.white54)))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: combinedContacts.length,
+                    itemBuilder: (context, index) {
+                      final user = combinedContacts[index];
                 final username = user['username'] as String;
                 final publicKey = user['public_key'] as String?;
                 
@@ -99,6 +197,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 );
               },
             ),
+          ),
+        ],
+      ),
     );
   }
 }

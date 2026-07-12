@@ -59,12 +59,28 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// Obsługa zdarzeń PO autoryzacji
 		switch event.Type {
 		case "get_users":
-			users, err := GetAllUsers()
+			users, err := GetVisibleUsers()
 			if err != nil {
 				log.Printf("Błąd pobierania użytkowników: %v", err)
 				continue
 			}
 			client.WriteJSON(WsEvent{Type: "user_list", Users: users})
+
+		case "search_users":
+			if event.SearchQuery != "" {
+				users, err := SearchUser(event.SearchQuery)
+				if err == nil {
+					client.WriteJSON(WsEvent{Type: "search_results", Users: users})
+				}
+			}
+
+		case "get_specific_users":
+			if len(event.Usernames) > 0 {
+				users, err := GetUsersByUsernames(event.Usernames)
+				if err == nil {
+					client.WriteJSON(WsEvent{Type: "specific_users_list", Users: users})
+				}
+			}
 
 		case "sync_messages":
 			user, _ := GetUserByUsername(client.Username)
@@ -97,6 +113,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				Messages: []WsMessage{
 					{
 						SenderUsername:   sender.Username,
+						SenderPublicKey:  sender.PublicKey,
 						EncryptedContent: event.EncryptedContent,
 						Timestamp:        time.Now().Format(time.RFC3339),
 					},

@@ -25,3 +25,15 @@ class ContactsNotifier extends Notifier<List<Map<String, dynamic>>> {
   void set(List<Map<String, dynamic>> val) => state = val;
 }
 final contactsProvider = NotifierProvider<ContactsNotifier, List<Map<String, dynamic>>>(ContactsNotifier.new);
+
+class MitMWarningsNotifier extends Notifier<Map<String, bool>> {
+  @override
+  Map<String, bool> build() => {};
+  
+  void setWarning(String username, bool hasWarning) {
+    state = {...state, username: hasWarning};
+  }
+  
+  bool hasWarning(String username) => state[username] ?? false;
+}
+final mitmWarningsProvider = NotifierProvider<MitMWarningsNotifier, Map<String, bool>>(MitMWarningsNotifier.new);

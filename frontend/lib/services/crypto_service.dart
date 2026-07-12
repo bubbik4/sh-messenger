@@ -31,6 +31,17 @@ class CryptoService {
     return base64Encode(publicKey.bytes);
   }
 
+  /// Wymusza generację nowej pary kluczy i nadpisuje starą
+  Future<String> generateNewKeyPair() async {
+    final keyPair = await _algorithm.newKeyPair();
+    final privateKey = await keyPair.extractPrivateKeyBytes();
+    
+    await _storage.write(key: _privateKeyKey, value: base64Encode(privateKey));
+    
+    final publicKey = await keyPair.extractPublicKey();
+    return base64Encode(publicKey.bytes);
+  }
+
   /// Wylicza wspólny sekret (Shared Secret) na podstawie obcego klucza publicznego
   Future<SecretKey> _calculateSharedSecret(String peerPublicKeyBase64) async {
     final privateKeyStr = await _storage.read(key: _privateKeyKey);

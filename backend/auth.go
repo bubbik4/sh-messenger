@@ -36,32 +36,33 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, "Error hashing password", http.StatusInternalServerError)
+		http.Error(w, "Błąd serwera", http.StatusInternalServerError)
 		return
 	}
 
-	err = CreateUser(req.Username, string(hash), req.PublicKey)
+	err = CreateUser(req.Username, string(hashedPassword), req.PublicKey, req.IsVisible)
 	if err != nil {
-		http.Error(w, "Error creating user or username exists", http.StatusConflict)
+		http.Error(w, "Użytkownik już istnieje", http.StatusConflict)
 		return
 	}
 
-	tokenString, err := generateJWT(req.Username)
+	// Od razu logujemy użytkownika po rejestracji
+	token, err := generateJWT(req.Username)
 	if err != nil {
-		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		http.Error(w, "Błąd generowania tokenu", http.StatusInternalServerError)
 		return
 	}
 
-	// Broadcast updated user list to all connected clients
-	if users, err := GetAllUsers(); err == nil {
+	// Broadcast the updated visible user list to connected clients
+	if users, err := GetVisibleUsers(); err == nil {
 		globalHub.Broadcast(WsEvent{Type: "user_list", Users: users})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(AuthResponse{
-		Token:   tokenString,
+		Token:   token,
 		IsAdmin: false,
 	})
 }
@@ -90,7 +91,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		_, err = DB.Exec(r.Context(), "UPDATE users SET public_key = $1 WHERE id = $2", req.PublicKey, user.ID)
 		if err == nil {
 			// Broadcast updated user list to all connected clients
-			if users, err := GetAllUsers(); err == nil {
+			if users, err := GetVisibleUsers(); err == nil {
 				globalHub.Broadcast(WsEvent{Type: "user_list", Users: users})
 			}
 		}

@@ -15,6 +15,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isVisible = true;
   String? _errorMessage;
 
   Future<void> _submit(bool isRegister) async {
@@ -31,7 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final apiService = ref.read(apiServiceProvider);
       bool success;
       if (isRegister) {
-        success = await apiService.register(username, password);
+        success = await apiService.register(username, password, _isVisible);
       } else {
         success = await apiService.login(username, password);
       }
@@ -111,6 +112,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         labelText: 'Hasło',
                         prefixIcon: Icon(Icons.key),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Icon(Icons.visibility_outlined, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Konto widoczne w globalnej liście',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        Switch(
+                          value: _isVisible,
+                          onChanged: (val) {
+                            setState(() {
+                              _isVisible = val;
+                            });
+                          },
+                        ),
+                      ],
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 16),

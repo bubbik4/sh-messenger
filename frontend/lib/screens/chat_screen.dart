@@ -106,6 +106,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
               ),
             ),
+          Consumer(
+            builder: (context, ref, child) {
+              final hasWarning = ref.watch(mitmWarningsProvider)[widget.receiverUsername] ?? false;
+              if (hasWarning) {
+                return Container(
+                  width: double.infinity,
+                  color: Colors.orangeAccent.withOpacity(0.2),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  child: const Text(
+                    'Klucz tożsamości użytkownika uległ zmianie! Zweryfikuj odcisk palca (fingerprint) przed dalszym pisaniem.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -118,7 +136,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           ),
-          if (widget.receiverPublicKey.isNotEmpty) _buildMessageInput(),
+          Consumer(
+            builder: (context, ref, child) {
+               final hasWarning = ref.watch(mitmWarningsProvider)[widget.receiverUsername] ?? false;
+               if (widget.receiverPublicKey.isNotEmpty && !hasWarning) {
+                  return _buildMessageInput();
+               }
+               return const SizedBox.shrink();
+            },
+          ),
         ],
       ),
     );

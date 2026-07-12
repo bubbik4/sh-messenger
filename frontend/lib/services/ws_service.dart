@@ -5,11 +5,16 @@ import 'api_service.dart';
 import 'crypto_service.dart';
 import 'storage_service.dart';
 
+import '../providers.dart';
+
 final wsServiceProvider = Provider<WsService>((ref) {
-  return WsService();
+  return WsService(ref);
 });
 
 class WsService {
+  final Ref ref;
+  WsService(this.ref);
+
   final String wsUrl = 'wss://chat.bubikit.pl/ws';
   WebSocketChannel? _channel;
   final ApiService _apiService = ApiService();
@@ -18,6 +23,7 @@ class WsService {
 
   // Callbacks for UI updates
   Function(List<Map<String, dynamic>>)? onUsersUpdated;
+  Function(List<Map<String, dynamic>>)? onSearchResults;
   Function()? onNewMessage;
 
   Future<void> connect() async {
@@ -63,13 +69,15 @@ class WsService {
       print('Autoryzacja udana, synchronizacja wiadomości...');
       _sendJson({'type': 'sync_messages'});
       getUsers();
-    } else if (type == 'user_list') {
+    } else if (type == 'user_list' || type == 'specific_users_list' || type == 'search_results') {
       final users = List<Map<String, dynamic>>.from(data['users']);
       for (var u in users) {
-        _publicKeys[u['username']] = u['public_key'];
+        await _processIncomingPublicKey(u['username'], u['public_key']);
       }
-      if (onUsersUpdated != null) {
+      if (type == 'user_list' && onUsersUpdated != null) {
         onUsersUpdated!(users);
+      } else if (type == 'search_results' && onSearchResults != null) {
+        onSearchResults!(users);
       }
     } else if (type == 'sync_messages' || type == 'new_message') {
       final messages = data['messages'] as List<dynamic>?;
@@ -79,6 +87,12 @@ class WsService {
           final encryptedContent = msg['encrypted_content'];
           final timestampStr = msg['timestamp'];
           
+          final senderPublicKeyFromMessage = msg['sender_public_key'];
+          
+          if (senderPublicKeyFromMessage != null) {
+            await _processIncomingPublicKey(senderUsername, senderPublicKeyFromMessage);
+          }
+
           final peerPublicKey = _publicKeys[senderUsername];
           if (peerPublicKey != null) {
              print('Odebrano zaszyfrowaną wiadomość od $senderUsername, próbuję zdeszyfrować...');
@@ -105,8 +119,34 @@ class WsService {
     }
   }
 
+  Future<void> _processIncomingPublicKey(String username, String newKey) async {
+    final oldKey = _storageService.getPeerPublicKey(username);
+    if (oldKey != null && oldKey != newKey) {
+      // MITM WARNING
+      print('OSTRZEŻENIE MITM: Klucz dla $username się zmienił!');
+      ref.read(mitmWarningsProvider.notifier).setWarning(username, true);
+      // Nie aktualizujemy _publicKeys, używamy starego
+      _publicKeys[username] = oldKey;
+    } else {
+      if (oldKey == null) {
+        await _storageService.savePeerPublicKey(username, newKey);
+      }
+      _publicKeys[username] = newKey;
+      ref.read(mitmWarningsProvider.notifier).setWarning(username, false);
+    }
+  }
+
   void getUsers() {
     _sendJson({'type': 'get_users'});
+  }
+
+  void searchUsers(String query) {
+    _sendJson({'type': 'search_users', 'search_query': query});
+  }
+
+  void getSpecificUsers(List<String> usernames) {
+    if (usernames.isEmpty) return;
+    _sendJson({'type': 'get_specific_users', 'usernames': usernames});
   }
 
   Future<void> sendMessage(String receiverUsername, String plaintext, String fallbackReceiverPublicKey) async {

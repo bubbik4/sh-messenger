@@ -24,9 +24,9 @@ class ApiService {
     await _storage.write(key: _usernameKey, value: username);
   }
 
-  Future<bool> register(String username, String password) async {
-    // Generujemy klucze przy rejestracji
-    final publicKey = await _cryptoService.getOrGeneratePublicKey();
+  Future<bool> register(String username, String password, bool isVisible) async {
+    // Zawsze generujemy nowe klucze przy rejestracji
+    final publicKey = await _cryptoService.generateNewKeyPair();
 
     final response = await http.post(
       Uri.parse('$baseUrl/register'),
@@ -35,6 +35,7 @@ class ApiService {
         'username': username,
         'password': password,
         'public_key': publicKey,
+        'is_visible': isVisible,
       }),
     );
 

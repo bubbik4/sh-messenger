@@ -26,6 +26,24 @@ class StorageService {
       'messages',
       encryptionCipher: HiveAesCipher(encryptionKey),
     );
+
+    // Skrzynka na znane klucze publiczne (ochrona przed MitM)
+    await Hive.openBox<String>(
+      'peer_keys',
+      encryptionCipher: HiveAesCipher(encryptionKey),
+    );
+  }
+
+  /// Zapisuje klucz publiczny rozmówcy (Trust On First Use)
+  Future<void> savePeerPublicKey(String username, String publicKey) async {
+    final box = Hive.box<String>('peer_keys');
+    await box.put(username, publicKey);
+  }
+
+  /// Pobiera zapisany klucz publiczny rozmówcy
+  String? getPeerPublicKey(String username) {
+    final box = Hive.box<String>('peer_keys');
+    return box.get(username);
   }
 
   /// Zapisuje nową wiadomość
@@ -61,5 +79,18 @@ class StorageService {
     });
     
     return roomMessages;
+  }
+
+  /// Pobiera listę wszystkich roomId, z którymi użytkownik prowadził konwersację
+  List<String> getChattedRoomIds() {
+    final box = Hive.box<Map>('messages');
+    final allMessages = box.values.toList();
+    final Set<String> roomIds = {};
+    for (var msg in allMessages) {
+      if (msg['roomId'] != null) {
+        roomIds.add(msg['roomId'] as String);
+      }
+    }
+    return roomIds.toList();
   }
 }

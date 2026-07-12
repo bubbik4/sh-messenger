@@ -45,6 +45,7 @@ func createTables() error {
 			password_hash TEXT NOT NULL,
 			public_key TEXT NOT NULL DEFAULT '',
 			is_admin BOOLEAN DEFAULT FALSE,
+			is_visible BOOLEAN DEFAULT TRUE,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
 		`CREATE TABLE IF NOT EXISTS messages (
@@ -60,6 +61,7 @@ func createTables() error {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT NOT NULL DEFAULT '';`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_visible BOOLEAN DEFAULT TRUE;`,
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS encrypted_aes_key TEXT NOT NULL DEFAULT '';`,
 	}
 
@@ -73,14 +75,14 @@ func createTables() error {
 }
 
 // Funkcje pomocnicze bazy danych
-func CreateUser(username, passwordHash, publicKey string) error {
-	_, err := DB.Exec(context.Background(), "INSERT INTO users (username, password_hash, public_key) VALUES ($1, $2, $3)", username, passwordHash, publicKey)
+func CreateUser(username, passwordHash, publicKey string, isVisible bool) error {
+	_, err := DB.Exec(context.Background(), "INSERT INTO users (username, password_hash, public_key, is_visible) VALUES ($1, $2, $3, $4)", username, passwordHash, publicKey, isVisible)
 	return err
 }
 
 func GetUserByUsername(username string) (*User, error) {
 	var user User
-	err := DB.QueryRow(context.Background(), "SELECT id, username, password_hash, public_key, is_admin FROM users WHERE username = $1", username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.PublicKey, &user.IsAdmin)
+	err := DB.QueryRow(context.Background(), "SELECT id, username, password_hash, public_key, is_admin, is_visible FROM users WHERE username = $1", username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.PublicKey, &user.IsAdmin, &user.IsVisible)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +90,7 @@ func GetUserByUsername(username string) (*User, error) {
 }
 
 func GetAllUsers() ([]User, error) {
-	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key, is_admin FROM users")
+	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key, is_admin, is_visible FROM users")
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +99,65 @@ func GetAllUsers() ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.PublicKey, &u.IsAdmin); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.PublicKey, &u.IsAdmin, &u.IsVisible); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func GetVisibleUsers() ([]User, error) {
+	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key, is_admin, is_visible FROM users WHERE is_visible = true")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.PublicKey, &u.IsAdmin, &u.IsVisible); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func GetUsersByUsernames(usernames []string) ([]User, error) {
+	if len(usernames) == 0 {
+		return []User{}, nil
+	}
+	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key, is_admin, is_visible FROM users WHERE username = ANY($1)", usernames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.PublicKey, &u.IsAdmin, &u.IsVisible); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func SearchUser(username string) ([]User, error) {
+	// Exact match as requested
+	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key, is_admin, is_visible FROM users WHERE username = $1", username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.PublicKey, &u.IsAdmin, &u.IsVisible); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -112,7 +172,7 @@ func SaveMessage(senderID, receiverID int, content string) error {
 
 func GetUndeliveredMessages(receiverID int) ([]WsMessage, error) {
 	rows, err := DB.Query(context.Background(), `
-		SELECT u.username, m.encrypted_content, m.created_at 
+		SELECT u.username, u.public_key, m.encrypted_content, m.created_at 
 		FROM messages m 
 		JOIN users u ON m.sender_id = u.id 
 		WHERE m.receiver_id = $1 AND m.is_delivered = false
@@ -126,7 +186,7 @@ func GetUndeliveredMessages(receiverID int) ([]WsMessage, error) {
 	for rows.Next() {
 		var msg WsMessage
 		var t time.Time
-		if err := rows.Scan(&msg.SenderUsername, &msg.EncryptedContent, &t); err != nil {
+		if err := rows.Scan(&msg.SenderUsername, &msg.SenderPublicKey, &msg.EncryptedContent, &t); err != nil {
 			return nil, err
 		}
 		msg.Timestamp = t.Format(time.RFC3339)
@@ -167,7 +227,7 @@ func SeedAdmin() {
 	if err != nil || user == nil {
 		// Admin nie istnieje, tworzymy
 		hash, _ := bcrypt.GenerateFromPassword([]byte("152247"), bcrypt.DefaultCost)
-		_, err := DB.Exec(context.Background(), "INSERT INTO users (username, password_hash, public_key, is_admin) VALUES ($1, $2, $3, $4)", "admin", string(hash), "", true)
+		_, err := DB.Exec(context.Background(), "INSERT INTO users (username, password_hash, public_key, is_admin, is_visible) VALUES ($1, $2, $3, $4, $5)", "admin", string(hash), "", true, false)
 		if err != nil {
 			log.Printf("Błąd podczas tworzenia konta admina: %v", err)
 		} else {

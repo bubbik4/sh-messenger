@@ -10,6 +10,7 @@ type User struct {
 	PasswordHash string    `json:"-"` // Nie wysyłamy hasła w JSON
 	PublicKey    string    `json:"public_key"`
 	IsAdmin      bool      `json:"is_admin"`
+	IsVisible    bool      `json:"is_visible"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -28,6 +29,7 @@ type AuthRequest struct {
 	Username  string `json:"username"`
 	Password  string `json:"password"`
 	PublicKey string `json:"public_key,omitempty"` // Tylko przy rejestracji
+	IsVisible bool   `json:"is_visible"`           // Tylko przy rejestracji
 }
 
 type AuthResponse struct {
@@ -41,12 +43,15 @@ type WsEvent struct {
 	Token            string      `json:"token,omitempty"`
 	ReceiverUsername string      `json:"receiver_username,omitempty"`
 	EncryptedContent string      `json:"encrypted_content,omitempty"`
+	SearchQuery      string      `json:"search_query,omitempty"`
+	Usernames        []string    `json:"usernames,omitempty"`
 	Users            []User      `json:"users,omitempty"`
 	Messages         []WsMessage `json:"messages,omitempty"`
 }
 
 type WsMessage struct {
 	SenderUsername   string `json:"sender_username"`
+	SenderPublicKey  string `json:"sender_public_key,omitempty"`
 	EncryptedContent string `json:"encrypted_content"`
 	Timestamp        string `json:"timestamp"`
 }
