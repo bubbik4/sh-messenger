@@ -31,7 +31,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
 
     try {
-      await ref.read(apiServiceProvider).changePassword(oldPass, newPass);
+      await ref.read(apiServiceProvider).changeOwnPassword(oldPass, newPass);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hasło zostało zmienione')));
         _oldPasswordController.clear();

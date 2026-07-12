@@ -157,7 +157,7 @@ class ApiService {
       return false;
     }
   }
-  Future<void> changePassword(String oldPassword, String newPassword) async {
+  Future<void> changeOwnPassword(String oldPassword, String newPassword) async {
     final token = await getToken();
     if (token == null) {
       throw Exception('Brak tokenu. Zaloguj się ponownie.');
