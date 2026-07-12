@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"time"
+	"crypto/rand"
+	"encoding/hex"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
@@ -222,11 +224,25 @@ func UpdateUserPassword(username, passwordHash string) error {
 	return err
 }
 
+func generateRandomPassword(length int) string {
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		log.Fatalf("Blad generatora losowosci: %v", err)
+	}
+	return hex.EncodeToString(bytes)
+}
+
 func SeedAdmin() {
 	user, err := GetUserByUsername("admin")
 	if err != nil || user == nil {
 		// Admin nie istnieje, tworzymy
-		hash, _ := bcrypt.GenerateFromPassword([]byte("152247"), bcrypt.DefaultCost)
+		adminPass := os.Getenv("ADMIN_INITIAL_PASSWORD")
+		if adminPass == "" {
+			adminPass = generateRandomPassword(16)
+			log.Printf("UWAGA: Brak zmiennej ADMIN_INITIAL_PASSWORD. Wygenerowano losowe haslo startowe: %s", adminPass)
+		}
+
+		hash, _ := bcrypt.GenerateFromPassword([]byte(adminPass), bcrypt.DefaultCost)
 		_, err := DB.Exec(context.Background(), "INSERT INTO users (username, password_hash, public_key, is_admin, is_visible) VALUES ($1, $2, $3, $4, $5)", "admin", string(hash), "", true, false)
 		if err != nil {
 			log.Printf("Błąd podczas tworzenia konta admina: %v", err)

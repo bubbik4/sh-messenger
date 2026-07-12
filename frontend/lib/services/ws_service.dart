@@ -8,6 +8,8 @@ import 'storage_service.dart';
 
 import '../providers.dart';
 
+import 'ws_channel_provider.dart';
+
 final wsServiceProvider = Provider<WsService>((ref) {
   return WsService(ref);
 });
@@ -35,7 +37,7 @@ class WsService {
     if (token == null) return;
 
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      _channel = connectWs(Uri.parse(wsUrl));
       await _channel!.ready;
 
       _channel!.stream.listen(

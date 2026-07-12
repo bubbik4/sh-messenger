@@ -12,13 +12,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtKey = []byte(getEnvOrDefault("JWT_SECRET", "supersecretkey"))
+var jwtKey []byte
 
-func getEnvOrDefault(key, defaultVal string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
+func InitAuth() {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Fatal("KRYTYCZNY BLAD: Zmienna srodowiskowa JWT_SECRET nie jest ustawiona. Ze wzgledow bezpieczenstwa serwer zatrzymany.")
 	}
-	return defaultVal
+	jwtKey = []byte(secret)
 }
 
 type Claims struct {

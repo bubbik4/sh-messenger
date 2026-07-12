@@ -11,6 +11,17 @@ class ApiService {
   static const _jwtKey = 'jwt_token';
   static const _usernameKey = 'logged_username';
 
+  Map<String, String> _getHeaders({String? token}) {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Origin': 'https://chat.bubikit.pl',
+    };
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
+
   Future<String?> getToken() async {
     return await _storage.read(key: _jwtKey);
   }
@@ -30,7 +41,7 @@ class ApiService {
 
     final response = await http.post(
       Uri.parse('$baseUrl/register'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({
         'username': username,
         'password': password,
@@ -53,7 +64,7 @@ class ApiService {
 
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({
         'username': username,
         'password': password,
@@ -74,7 +85,7 @@ class ApiService {
 
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _getHeaders(),
       body: jsonEncode({
         'username': username,
         'password': password,
@@ -96,9 +107,7 @@ class ApiService {
     final token = await getToken();
     final response = await http.get(
       Uri.parse('$baseUrl/admin/users'),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
+      headers: _getHeaders(token: token),
     );
 
     if (response.statusCode == 200) {
@@ -111,9 +120,7 @@ class ApiService {
     final token = await getToken();
     final response = await http.delete(
       Uri.parse('$baseUrl/admin/users?username=$username'),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
+      headers: _getHeaders(token: token),
     );
     return response.statusCode == 200;
   }
@@ -122,10 +129,7 @@ class ApiService {
     final token = await getToken();
     final response = await http.post(
       Uri.parse('$baseUrl/admin/change-password'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: _getHeaders(token: token),
       body: jsonEncode({
         'username': username,
         'new_password': newPassword,
@@ -146,10 +150,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/settings/visibility'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: _getHeaders(token: token),
         body: jsonEncode({'is_visible': isVisible}),
       );
       return response.statusCode == 200;
@@ -165,10 +166,7 @@ class ApiService {
 
     final response = await http.post(
       Uri.parse('$baseUrl/change_password'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: _getHeaders(token: token),
       body: jsonEncode({
         'old_password': oldPassword,
         'new_password': newPassword,

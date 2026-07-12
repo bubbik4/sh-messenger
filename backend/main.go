@@ -14,6 +14,9 @@ func main() {
 	}
 	defer DB.Close()
 
+	// Inicjalizacja kluczy bezpieczeństwa
+	InitAuth()
+
 	// Inicjalizacja konta administratora
 	SeedAdmin()
 
@@ -22,12 +25,18 @@ func main() {
 		port = "8080"
 	}
 
-	// Middleware do obsługi CORS
+	// Middleware do obsługi CORS - model scentralizowany
 	corsMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			origin := r.Header.Get("Origin")
+			if origin != "https://chat.bubikit.pl" {
+				http.Error(w, "Zabroniony Origin", http.StatusForbidden)
+				return
+			}
+
+			w.Header().Set("Access-Control-Allow-Origin", "https://chat.bubikit.pl")
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, Origin")
 
 			if r.Method == "OPTIONS" {
 				return
