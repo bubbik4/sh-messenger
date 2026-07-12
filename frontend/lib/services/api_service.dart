@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'crypto_service.dart';
 
 class ApiService {
-  final String baseUrl = 'http://localhost:8080/api'; // Zmienimy na domenę produkcyjną
+  final String baseUrl = 'https://chat.bubikit.pl/api'; // Zmienimy na domenę produkcyjną
   final _storage = const FlutterSecureStorage();
   final _cryptoService = CryptoService();
 

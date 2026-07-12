@@ -10,7 +10,7 @@ final wsServiceProvider = Provider<WsService>((ref) {
 });
 
 class WsService {
-  final String wsUrl = 'ws://localhost:8080/ws'; // Zmienimy na domenę produkcyjną
+  final String wsUrl = 'wss://chat.bubikit.pl/ws';
   WebSocketChannel? _channel;
   final ApiService _apiService = ApiService();
   final CryptoService _cryptoService = CryptoService();
