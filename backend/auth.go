@@ -217,7 +217,7 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// Pobranie starego hasha
 	var currentHash string
-	err = db.QueryRow("SELECT password_hash FROM users WHERE username = $1", username).Scan(&currentHash)
+	err = DB.QueryRow(r.Context(), "SELECT password_hash FROM users WHERE username = $1", username).Scan(&currentHash)
 	if err != nil {
 		log.Printf("Błąd DB przy pobieraniu hasha dla zmiany hasła: %v", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -235,7 +235,7 @@ func handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("UPDATE users SET password_hash = $1 WHERE username = $2", string(newHash), username)
+	_, err = DB.Exec(r.Context(), "UPDATE users SET password_hash = $1 WHERE username = $2", string(newHash), username)
 	if err != nil {
 		log.Printf("Błąd DB przy zapisywaniu nowego hasła: %v", err)
 		http.Error(w, "Error updating password", http.StatusInternalServerError)
