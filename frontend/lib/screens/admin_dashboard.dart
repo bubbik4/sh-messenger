@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/api_service.dart';
-import '../theme.dart';
 import '../providers.dart';
+import '../theme.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -106,7 +105,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             onPressed: () async {
               await ref.read(apiServiceProvider).logout();
               ref.read(authStateProvider.notifier).set(false);
-              if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, '/');
+              }
             },
           )
         ],

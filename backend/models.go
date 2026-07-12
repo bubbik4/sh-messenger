@@ -32,6 +32,10 @@ type AuthRequest struct {
 	IsVisible bool   `json:"is_visible"`           // Tylko przy rejestracji
 }
 
+type SettingsRequest struct {
+	IsVisible bool `json:"is_visible"`
+}
+
 type AuthResponse struct {
 	Token   string `json:"token"`
 	IsAdmin bool   `json:"is_admin"`

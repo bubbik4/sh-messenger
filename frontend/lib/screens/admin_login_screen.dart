@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/api_service.dart';
 import '../theme.dart';
 import '../providers.dart';
 
@@ -27,7 +26,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     if (success) {
       ref.read(currentUsernameProvider.notifier).set(_usernameController.text.trim());
       ref.read(authStateProvider.notifier).set(true);
-      Navigator.of(context).pushReplacementNamed('/admin/dashboard');
+      if (context.mounted) {
+        Navigator.of(context).pushReplacementNamed('/admin/dashboard');
+      }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -47,6 +47,9 @@ func main() {
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "sh-messenger backend is running"})
 	})
 
+	// Routing HTTP dla Zalogowanych (Ustawienia)
+	mux.HandleFunc("/api/settings/visibility", handleUpdateVisibility)
+
 	// Routing HTTP dla Admina
 	mux.HandleFunc("/api/admin/users", adminMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {

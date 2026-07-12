@@ -38,9 +38,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           });
         }
       };
-      // Gdyby przyszła jakaś wiadomość w tle (odśwież listę, notyfikację itp.)
       wsService.onNewMessage = () {
-        // TODO: Update unread counters or re-sort contacts
+        if (mounted) {
+           setState(() {}); // Odświeża listę, jeśli dostaliśmy wiadomość od nowej ukrytej osoby
+        }
       };
       
       wsService.connect().then((_) {
@@ -65,13 +66,13 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final myUsername = ref.watch(currentUsernameProvider);
 
     // Budujemy wspólną listę: najpierw wyniki wyszukiwania, potem reszta bez duplikatów
-    final Set<String> _seenUsernames = {myUsername ?? ''};
+    final Set<String> seenUsernames = {myUsername ?? ''};
     final List<Map<String, dynamic>> combinedContacts = [];
 
     // 1. Dodajemy wyniki wyszukiwania
     for (var u in _searchResults) {
-      if (!_seenUsernames.contains(u['username'])) {
-        _seenUsernames.add(u['username']);
+      if (!seenUsernames.contains(u['username'])) {
+        seenUsernames.add(u['username']);
         combinedContacts.add(u);
       }
     }
@@ -80,8 +81,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     // Jednak w naszym przypadku wszystkie powiadomienia (w tym specific_users_list) wpadają do _publicKeys, ale onUsersUpdated tylko dla publicznych.
     // Dlatego możemy na razie użyć po prostu publicContacts, oraz dodać tych z lokalnej bazy (jeśli mamy ich klucze publiczne).
     for (var u in publicContacts) {
-      if (!_seenUsernames.contains(u['username'])) {
-        _seenUsernames.add(u['username']);
+      if (!seenUsernames.contains(u['username'])) {
+        seenUsernames.add(u['username']);
         combinedContacts.add(u);
       }
     }
@@ -89,10 +90,10 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     // 3. Dodajemy z historii lokalnej
     final oldRoomIds = _storageService.getChattedRoomIds();
     for (var roomId in oldRoomIds) {
-      if (!_seenUsernames.contains(roomId)) {
+      if (!seenUsernames.contains(roomId)) {
         final savedPubKey = _storageService.getPeerPublicKey(roomId);
         if (savedPubKey != null) {
-          _seenUsernames.add(roomId);
+          seenUsernames.add(roomId);
           combinedContacts.add({
              'username': roomId,
              'public_key': savedPubKey,
@@ -109,6 +110,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               ref.read(wsServiceProvider).getUsers();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.pushNamed(context, '/settings');
             },
           ),
         ],
@@ -169,7 +176,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
 
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AppTheme.primaryBlue.withOpacity(0.2),
+                    backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.2),
                     child: Text(
                       username.substring(0, 1).toUpperCase(),
                       style: const TextStyle(color: AppTheme.primaryBlue, fontWeight: FontWeight.bold),

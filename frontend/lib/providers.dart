@@ -5,6 +5,15 @@ final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService();
 });
 
+// Przechowuje informację o obecnym statusie widoczności uzytkownika w ustawieniach.
+// Default to true.
+class VisibilityNotifier extends Notifier<bool> {
+  @override
+  bool build() => true;
+  void set(bool val) => state = val;
+}
+final visibilityProvider = NotifierProvider<VisibilityNotifier, bool>(VisibilityNotifier.new);
+
 class AuthStateNotifier extends Notifier<bool> {
   @override
   bool build() => false;

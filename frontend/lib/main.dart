@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/contacts_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/admin_dashboard.dart';
 import 'services/storage_service.dart';
@@ -34,7 +36,9 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginScreen(),
         '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
         '/contacts': (context) => const ContactsScreen(),
+        '/settings': (context) => const SettingsScreen(),
         '/admin/login': (context) => const AdminLoginScreen(),
         '/admin/dashboard': (context) => const AdminDashboardScreen(),
       },

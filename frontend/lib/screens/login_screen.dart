@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
 import '../providers.dart';
-import 'contacts_screen.dart';
+import '../constants.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -15,10 +15,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _isVisible = true;
   String? _errorMessage;
 
-  Future<void> _submit(bool isRegister) async {
+  Future<void> _submit() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
     if (username.isEmpty || password.isEmpty) return;
@@ -30,12 +29,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final apiService = ref.read(apiServiceProvider);
-      bool success;
-      if (isRegister) {
-        success = await apiService.register(username, password, _isVisible);
-      } else {
-        success = await apiService.login(username, password);
-      }
+      final success = await apiService.login(username, password);
 
       if (success) {
         ref.read(authStateProvider.notifier).set(true);
@@ -45,7 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       } else {
         setState(() {
-          _errorMessage = isRegister ? 'Błąd rejestracji' : 'Błędny login lub hasło';
+          _errorMessage = 'Błędny login lub hasło';
         });
       }
     } catch (e) {
@@ -64,13 +58,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+      body: Stack(
+        children: [
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
               const Icon(Icons.lock_outline, size: 64, color: AppTheme.primaryBlue),
               const SizedBox(height: 24),
               Text(
@@ -114,26 +110,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Icon(Icons.visibility_outlined, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Konto widoczne w globalnej liście',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        Switch(
-                          value: _isVisible,
-                          onChanged: (val) {
-                            setState(() {
-                              _isVisible = val;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 16),
                       Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
@@ -146,13 +122,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           ElevatedButton(
-                            onPressed: () => _submit(false),
+                            onPressed: _submit,
                             child: const Text('Zaloguj'),
                           ),
                           const SizedBox(height: 8),
-                          OutlinedButton(
-                            onPressed: () => _submit(true),
-                            child: const Text('Zarejestruj się'),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pushReplacementNamed(context, '/register');
+                            },
+                            child: const Text('Nie masz konta? Zarejestruj się', style: TextStyle(color: AppTheme.primaryBlue)),
                           ),
                         ],
                       ),
@@ -163,6 +141,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ),
       ),
-    );
+      Positioned(
+        bottom: 16,
+        right: 16,
+        child: Text(
+          'v$appVersion',
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+      ),
+    ],
+  ),
+);
   }
 }

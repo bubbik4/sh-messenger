@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -44,7 +46,8 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	err = CreateUser(req.Username, string(hashedPassword), req.PublicKey, req.IsVisible)
 	if err != nil {
-		http.Error(w, "Użytkownik już istnieje", http.StatusConflict)
+		log.Printf("Błąd DB przy CreateUser: %v", err)
+		http.Error(w, fmt.Sprintf("Błąd przy tworzeniu użytkownika: %v", err), http.StatusConflict)
 		return
 	}
 
@@ -134,4 +137,45 @@ func verifyJWT(tokenString string) (string, error) {
 	}
 
 	return claims.Username, nil
+}
+
+func handleUpdateVisibility(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || len(authHeader) < 8 {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+	tokenString := authHeader[7:]
+
+	username, err := verifyJWT(tokenString)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	var req SettingsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err = UpdateUserVisibility(username, req.IsVisible)
+	if err != nil {
+		log.Printf("Błąd DB przy UpdateUserVisibility: %v", err)
+		http.Error(w, "Error updating visibility", http.StatusInternalServerError)
+		return
+	}
+
+	// Od razu rozgłaszamy zaktualizowaną listę użytkowników widocznych do wszystkich
+	if users, err := GetVisibleUsers(); err == nil {
+		globalHub.Broadcast(WsEvent{Type: "user_list", Users: users})
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"success"}`))
 }

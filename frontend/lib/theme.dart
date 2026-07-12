@@ -20,7 +20,12 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         primary: primaryBlue,
         surface: cardColor,
-        background: backgroundDark,
+        surfaceContainerHigh: backgroundDark,
+        error: Colors.redAccent,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: Colors.white,
+        onError: Colors.white,
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
         bodyLarge: const TextStyle(color: textLight),
@@ -28,15 +33,21 @@ class AppTheme {
         bodySmall: const TextStyle(color: textDim),
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: backgroundDark,
+        backgroundColor: cardColor,
         elevation: 0,
-        centerTitle: false,
-        iconTheme: IconThemeData(color: textLight),
+        centerTitle: true,
+        iconTheme: IconThemeData(color: Colors.white),
         titleTextStyle: TextStyle(
-          color: textLight,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
         ),
+      ),
+      cardTheme: CardThemeData(
+        color: cardColor,
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: 0.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -45,14 +56,22 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        hintStyle: const TextStyle(color: textDim),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryBlue),
+        ),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryBlue,
           foregroundColor: Colors.white,
           elevation: 4,
-          shadowColor: primaryBlue.withOpacity(0.5),
+          shadowColor: primaryBlue.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -65,12 +84,12 @@ class AppTheme {
   // Używamy tych cieni do kafelków wiadomości (efekt Elevated)
   static List<BoxShadow> elevatedShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.3),
+      color: Colors.black.withValues(alpha: 0.3),
       blurRadius: 10,
       offset: const Offset(0, 4),
     ),
     BoxShadow(
-      color: Colors.black.withOpacity(0.1),
+      color: Colors.black.withValues(alpha: 0.1),
       blurRadius: 2,
       offset: const Offset(0, 1),
     ),

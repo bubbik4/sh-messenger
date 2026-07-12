@@ -138,4 +138,23 @@ class ApiService {
     await _storage.delete(key: _jwtKey);
     await _storage.delete(key: _usernameKey);
   }
+
+  Future<bool> updateVisibility(bool isVisible) async {
+    final token = await getToken();
+    if (token == null) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/settings/visibility'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'is_visible': isVisible}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
 }

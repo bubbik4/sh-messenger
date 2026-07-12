@@ -33,13 +33,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Rejestrujemy nasłuch na nowe wiadomości (żeby ekran się odświeżał na żywo)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final wsService = ref.read(wsServiceProvider);
-      // Przechwytujemy oryginalny callback, by go przywrócić w razie czego
-      final oldCallback = wsService.onNewMessage;
+      _oldCallback = wsService.onNewMessage;
       wsService.onNewMessage = () {
         if (mounted) _loadMessages();
-        if (oldCallback != null) oldCallback();
+        if (_oldCallback != null) _oldCallback!();
       };
     });
+  }
+
+  Function()? _oldCallback;
+
+  @override
+  void dispose() {
+    ref.read(wsServiceProvider).onNewMessage = _oldCallback;
+    super.dispose();
   }
 
   void _loadMessages() {
@@ -112,7 +119,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               if (hasWarning) {
                 return Container(
                   width: double.infinity,
-                  color: Colors.orangeAccent.withOpacity(0.2),
+                  color: Colors.orangeAccent.withValues(alpha: 0.2),
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   child: const Text(
                     'Klucz tożsamości użytkownika uległ zmianie! Zweryfikuj odcisk palca (fingerprint) przed dalszym pisaniem.',
@@ -157,7 +164,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isMe ? AppTheme.primaryBlueDark : AppTheme.cardColor,
+          color: isMe ? AppTheme.primaryBlueDark : AppTheme.cardColor.withValues(alpha: 0.8),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -181,7 +188,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         color: AppTheme.backgroundDark,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -197,7 +204,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 prefixIcon: const Icon(Icons.lock_outline, size: 18),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 filled: true,
-                fillColor: AppTheme.cardColor,
+                fillColor: AppTheme.cardColor.withValues(alpha: 0.5),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,

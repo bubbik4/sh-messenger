@@ -238,3 +238,8 @@ func SeedAdmin() {
 		_, _ = DB.Exec(context.Background(), "UPDATE users SET is_admin = true WHERE username = 'admin'")
 	}
 }
+
+func UpdateUserVisibility(username string, isVisible bool) error {
+	_, err := DB.Exec(context.Background(), "UPDATE users SET is_visible = $1 WHERE username = $2", isVisible, username)
+	return err
+}
