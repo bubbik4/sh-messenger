@@ -12,6 +12,14 @@ import 'services/storage_service.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Inicializujemy Firebase w izolacie tła
+  await Firebase.initializeApp();
+  debugPrint("Otrzymano wiadomość w tle: ${message.messageId}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +27,7 @@ void main() async {
   if (!kIsWeb) {
     try {
       await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     } catch (e) {
       debugPrint("Firebase init error: $e");
     }

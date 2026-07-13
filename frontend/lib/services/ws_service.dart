@@ -118,6 +118,7 @@ class WsService {
       for (var u in usersList) {
         final username = u['username'];
         final isOnline = u['is_online'] == true;
+        ref.read(onlineStatusProvider.notifier).setStatus(username, isOnline);
         if (onUserStatusChanged != null) {
           onUserStatusChanged!(username, isOnline);
         }
@@ -129,9 +130,15 @@ class WsService {
     } else if (type == 'user_list' || type == 'specific_users_list' || type == 'search_results') {
       final usersList = data['users'] as List<dynamic>? ?? [];
       final users = List<Map<String, dynamic>>.from(usersList);
+      final Map<String, bool> newStatuses = {};
+      
       for (var u in users) {
+        newStatuses[u['username']] = u['is_online'] == true;
         await _processIncomingPublicKey(u['username'], u['public_key']);
       }
+      
+      ref.read(onlineStatusProvider.notifier).setStatuses(newStatuses);
+
       if (type == 'user_list' && onUsersUpdated != null) {
         onUsersUpdated!(users);
       } else if (type == 'search_results' && onSearchResults != null) {

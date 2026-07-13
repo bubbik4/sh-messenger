@@ -35,18 +35,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       };
       wsService.onUserStatusChanged = (username, isOnline) {
         if (mounted) {
-          ref.read(contactsProvider.notifier).updateStatus(username, isOnline);
-          
-          // Aktualizujemy też _searchResults lokalnie jeśli tam jest ten użytkownik
-          setState(() {
-            for (int i = 0; i < _searchResults.length; i++) {
-              if (_searchResults[i]['username'] == username) {
-                final updatedUser = Map<String, dynamic>.from(_searchResults[i]);
-                updatedUser['is_online'] = isOnline;
-                _searchResults[i] = updatedUser;
-              }
-            }
-          });
+          // Stan jest już w onlineStatusProvider, nie musimy tu ręcznie
+          // aktualizować _searchResults, bo polegamy teraz na onlineStatusProvider w build()
         }
       };
 
@@ -84,44 +74,66 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   Widget build(BuildContext context) {
     final publicContacts = ref.watch(contactsProvider);
     final myUsername = ref.watch(currentUsernameProvider);
+    final onlineStatuses = ref.watch(onlineStatusProvider);
 
     // Budujemy wspólną listę: najpierw wyniki wyszukiwania, potem reszta bez duplikatów
     final Set<String> seenUsernames = {myUsername ?? ''};
     final List<Map<String, dynamic>> combinedContacts = [];
 
-    // 1. Dodajemy wyniki wyszukiwania
-    for (var u in _searchResults) {
-      if (!seenUsernames.contains(u['username'])) {
-        seenUsernames.add(u['username']);
-        combinedContacts.add(u);
+    void addUser(String username, String? pubKey) {
+      if (username.isEmpty || seenUsernames.contains(username)) return;
+      seenUsernames.add(username);
+      
+      final messages = _storageService.getMessagesForRoom(username);
+      String lastMessageText = '';
+      DateTime? lastMessageTime;
+      
+      if (messages.isNotEmpty) {
+        final lastMsg = messages.last;
+        final text = lastMsg['message'] as String;
+        if (text.startsWith('[IMG_E2E]:')) {
+          lastMessageText = '📷 Zdjęcie';
+        } else {
+          lastMessageText = text;
+        }
+        lastMessageTime = DateTime.parse(lastMsg['timestamp'] as String);
       }
+      
+      combinedContacts.add({
+         'username': username,
+         'public_key': pubKey,
+         'is_online': onlineStatuses[username] == true,
+         'last_message': lastMessageText,
+         'last_message_time': lastMessageTime,
+      });
     }
 
-    // 2. Dodajemy publiczne kontakty + te ukryte, do których już mamy historię (przyszły z getSpecificUsers i są w _publicKeys)
-    // Jednak w naszym przypadku wszystkie powiadomienia (w tym specific_users_list) wpadają do _publicKeys, ale onUsersUpdated tylko dla publicznych.
-    // Dlatego możemy na razie użyć po prostu publicContacts, oraz dodać tych z lokalnej bazy (jeśli mamy ich klucze publiczne).
-    for (var u in publicContacts) {
-      if (!seenUsernames.contains(u['username'])) {
-        seenUsernames.add(u['username']);
-        combinedContacts.add(u);
-      }
+    // 1. Dodajemy z wyszukiwania
+    for (var u in _searchResults) {
+      addUser(u['username'], u['public_key']);
     }
-    
-    // 3. Dodajemy z historii lokalnej
+
+    // 2. Dodajemy z historii lokalnej (dają najwięcej kontekstu bo mają wiadomości)
     final oldRoomIds = _storageService.getChattedRoomIds();
     for (var roomId in oldRoomIds) {
-      if (!seenUsernames.contains(roomId)) {
-        final savedPubKey = _storageService.getPeerPublicKey(roomId);
-        if (savedPubKey != null) {
-          seenUsernames.add(roomId);
-          combinedContacts.add({
-             'username': roomId,
-             'public_key': savedPubKey,
-             'is_online': false, // domyślnie false z bazy lokalnej dopóki nie pobierzemy statusu z serwera
-          });
-        }
-      }
+      final savedPubKey = _storageService.getPeerPublicKey(roomId);
+      addUser(roomId, savedPubKey);
     }
+
+    // 3. Dodajemy z kontaktów publicznych
+    for (var u in publicContacts) {
+      addUser(u['username'], u['public_key']);
+    }
+    
+    // Sortowanie: ci z nowszymi wiadomościami na górę
+    combinedContacts.sort((a, b) {
+      final timeA = a['last_message_time'] as DateTime?;
+      final timeB = b['last_message_time'] as DateTime?;
+      if (timeA == null && timeB == null) return 0;
+      if (timeA == null) return 1;
+      if (timeB == null) return -1;
+      return timeB.compareTo(timeA); // malejąco
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -192,6 +204,19 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 final username = user['username'] as String;
                 final publicKey = user['public_key'] as String?;
                 final isOnline = user['is_online'] == true;
+                final lastMessage = user['last_message'] as String;
+                final lastMessageTime = user['last_message_time'] as DateTime?;
+                
+                String timeStr = '';
+                if (lastMessageTime != null) {
+                  final localTime = lastMessageTime.toLocal();
+                  final now = DateTime.now();
+                  if (now.difference(localTime).inDays == 0 && now.day == localTime.day) {
+                    timeStr = '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+                  } else {
+                    timeStr = '${localTime.day.toString().padLeft(2, '0')}.${localTime.month.toString().padLeft(2, '0')}';
+                  }
+                }
                 
                 // Nie pokazuj nas samych na liście kontaktów do czatu
                 if (username == myUsername) return const SizedBox.shrink();
@@ -222,19 +247,33 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                         ),
                     ],
                   ),
-                  title: Text(username, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                    isOnline ? 'Aktywny(a) teraz' : 'Offline', 
-                    style: TextStyle(color: isOnline ? Colors.greenAccent.withValues(alpha: 0.8) : Colors.white54, fontSize: 12)
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(username, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      if (timeStr.isNotEmpty)
+                        Text(timeStr, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                    ],
                   ),
-                  onTap: () {
+                  subtitle: lastMessage.isNotEmpty 
+                    ? Text(
+                        lastMessage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      )
+                    : Text(
+                        isOnline ? 'Aktywny(a) teraz' : 'Offline', 
+                        style: TextStyle(color: isOnline ? Colors.greenAccent.withValues(alpha: 0.8) : Colors.white54, fontSize: 13)
+                      ),
+                  onTap: () async {
                     if (publicKey == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Ten użytkownik nie posiada wygenerowanego klucza E2E')),
                       );
                       return;
                     }
-                    Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatScreen(
@@ -243,6 +282,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                         ),
                       ),
                     );
+                    // Odśwież listę po powrocie z czatu, żeby pokazać nową ostatnią wiadomość
+                    if (mounted) setState(() {});
                   },
                 );
               },

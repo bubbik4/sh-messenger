@@ -6,18 +6,12 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
 )
 
 var fcmClient *messaging.Client
-
-// userTokens przechowuje tokeny FCM przypisane do danego użytkownika
-// W prostej wersji przechowujemy w pamięci, podobnie jak użytkowników.
-var userTokens = make(map[string]string)
-var fcmMutex sync.RWMutex
 
 func initFirebase() {
 	app, err := firebase.NewApp(context.Background(), nil)
@@ -70,10 +64,12 @@ func handleFCMToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Token != "" {
-		fcmMutex.Lock()
-		userTokens[username] = req.Token
-		fcmMutex.Unlock()
-		log.Printf("Zapisano token FCM dla użytkownika: %s", username)
+		err := UpdateFCMToken(username, req.Token)
+		if err != nil {
+			log.Printf("Błąd podczas zapisywania tokenu FCM do bazy: %v", err)
+		} else {
+			log.Printf("Zapisano token FCM dla użytkownika: %s", username)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -85,11 +81,8 @@ func sendPushNotification(toUsername, senderUsername string) {
 		return
 	}
 
-	fcmMutex.RLock()
-	token, ok := userTokens[toUsername]
-	fcmMutex.RUnlock()
-
-	if !ok || token == "" {
+	token, err := GetFCMToken(toUsername)
+	if err != nil || token == "" {
 		return
 	}
 
@@ -101,7 +94,7 @@ func sendPushNotification(toUsername, senderUsername string) {
 		Token: token,
 	}
 
-	_, err := fcmClient.Send(context.Background(), message)
+	_, err = fcmClient.Send(context.Background(), message)
 	if err != nil {
 		log.Printf("Błąd wysyłania powiadomienia Push do %s: %v", toUsername, err)
 	}

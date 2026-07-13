@@ -58,3 +58,19 @@ class MitMWarningsNotifier extends Notifier<Map<String, bool>> {
   bool hasWarning(String username) => state[username] ?? false;
 }
 final mitmWarningsProvider = NotifierProvider<MitMWarningsNotifier, Map<String, bool>>(MitMWarningsNotifier.new);
+
+class OnlineStatusNotifier extends Notifier<Map<String, bool>> {
+  @override
+  Map<String, bool> build() => {};
+  
+  void setStatus(String username, bool isOnline) {
+    if (state[username] != isOnline) {
+      state = {...state, username: isOnline};
+    }
+  }
+  
+  void setStatuses(Map<String, bool> newStatuses) {
+    state = {...state, ...newStatuses};
+  }
+}
+final onlineStatusProvider = NotifierProvider<OnlineStatusNotifier, Map<String, bool>>(OnlineStatusNotifier.new);

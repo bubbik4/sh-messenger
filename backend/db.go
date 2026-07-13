@@ -65,6 +65,7 @@ func createTables() error {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_visible BOOLEAN DEFAULT TRUE;`,
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS encrypted_aes_key TEXT NOT NULL DEFAULT '';`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token TEXT NOT NULL DEFAULT '';`,
 	}
 
 	for _, query := range queries {
@@ -258,4 +259,18 @@ func SeedAdmin() {
 func UpdateUserVisibility(username string, isVisible bool) error {
 	_, err := DB.Exec(context.Background(), "UPDATE users SET is_visible = $1 WHERE username = $2", isVisible, username)
 	return err
+}
+
+func UpdateFCMToken(username string, token string) error {
+	_, err := DB.Exec(context.Background(), "UPDATE users SET fcm_token = $1 WHERE username = $2", token, username)
+	return err
+}
+
+func GetFCMToken(username string) (string, error) {
+	var token string
+	err := DB.QueryRow(context.Background(), "SELECT fcm_token FROM users WHERE username = $1", username).Scan(&token)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
 }
