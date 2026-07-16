@@ -289,6 +289,51 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
               },
             ),
           ),
+          Consumer(
+            builder: (context, ref, child) {
+              final status = ref.watch(connectionStatusProvider);
+              String text;
+              Color color;
+              
+              switch (status) {
+                case ConnectionStatus.connecting:
+                  text = 'Łączenie z serwerem...';
+                  color = Colors.orange;
+                  break;
+                case ConnectionStatus.connected:
+                  text = 'Połączono';
+                  color = Colors.green;
+                  break;
+                case ConnectionStatus.disconnected:
+                  text = 'Brak połączenia';
+                  color = Colors.red;
+                  break;
+              }
+              
+              return Container(
+                width: double.infinity,
+                color: AppTheme.surfaceDark,
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(text, style: TextStyle(color: color, fontSize: 12)),
+                      ],
+                    ),
+                    const Text('v1.3.0', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  ],
+                ),
+              );
+            },
+          ),
         ],
       ),
     );

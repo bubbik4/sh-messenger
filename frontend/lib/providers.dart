@@ -74,3 +74,16 @@ class OnlineStatusNotifier extends Notifier<Map<String, bool>> {
   }
 }
 final onlineStatusProvider = NotifierProvider<OnlineStatusNotifier, Map<String, bool>>(OnlineStatusNotifier.new);
+
+enum ConnectionStatus {
+  connecting,
+  connected,
+  disconnected,
+}
+
+class ConnectionStatusNotifier extends Notifier<ConnectionStatus> {
+  @override
+  ConnectionStatus build() => ConnectionStatus.disconnected;
+  void set(ConnectionStatus val) => state = val;
+}
+final connectionStatusProvider = NotifierProvider<ConnectionStatusNotifier, ConnectionStatus>(ConnectionStatusNotifier.new);

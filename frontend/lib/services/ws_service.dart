@@ -36,9 +36,11 @@ class WsService {
   Timer? _pongTimeoutTimer;
 
   Future<void> connect() async {
+    ref.read(connectionStatusProvider.notifier).set(ConnectionStatus.connecting);
     final ticket = await _apiService.getWsTicket();
     if (ticket == null) {
       print('Błąd: nie udało się pobrać WS Ticket');
+      ref.read(connectionStatusProvider.notifier).set(ConnectionStatus.disconnected);
       return;
     }
 
@@ -52,10 +54,12 @@ class WsService {
         },
         onDone: () {
           print('WebSocket disconnected');
+          ref.read(connectionStatusProvider.notifier).set(ConnectionStatus.disconnected);
           _scheduleReconnect();
         },
         onError: (error) {
           print('WebSocket error: $error');
+          ref.read(connectionStatusProvider.notifier).set(ConnectionStatus.disconnected);
           _scheduleReconnect();
         },
         cancelOnError: true,
@@ -75,11 +79,13 @@ class WsService {
         _pongTimeoutTimer?.cancel();
         _pongTimeoutTimer = Timer(const Duration(seconds: 10), () {
           print('Brak odpowiedzi od serwera (PING timeout). Zamykanie połączenia.');
+          ref.read(connectionStatusProvider.notifier).set(ConnectionStatus.disconnected);
           _channel?.sink.close();
         });
       });
     } catch (e) {
       print('WebSocket connection failed: $e');
+      ref.read(connectionStatusProvider.notifier).set(ConnectionStatus.disconnected);
       _scheduleReconnect();
     }
   }
@@ -128,6 +134,7 @@ class WsService {
       }
     } else if (type == 'auth_success') {
       print('Autoryzacja udana, synchronizacja wiadomości...');
+      ref.read(connectionStatusProvider.notifier).set(ConnectionStatus.connected);
       final lastMsgId = _storageService.getLastMessageId();
       _sendJson({'type': 'sync_messages', 'last_message_id': lastMsgId});
       getUsers();
@@ -269,5 +276,6 @@ class WsService {
     _reconnectTimer?.cancel();
     _channel?.sink.close();
     _channel = null;
+    ref.read(connectionStatusProvider.notifier).set(ConnectionStatus.disconnected);
   }
 }
