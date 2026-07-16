@@ -46,16 +46,17 @@ class StorageService {
     return box.get(username);
   }
 
-  /// Zapisuje nową wiadomość
   Future<void> saveMessage({
     required String roomId,
     required String senderId,
     required String plaintextMessage,
     required DateTime timestamp,
+    int messageId = 0, // 0 oznacza lokalną wiadomość nadaną przez nas (nie z serwera)
   }) async {
     final box = Hive.box<Map>('messages');
     
     final messageData = {
+      'messageId': messageId,
       'roomId': roomId,
       'senderId': senderId,
       'message': plaintextMessage,
@@ -81,7 +82,6 @@ class StorageService {
     return roomMessages;
   }
 
-  /// Pobiera listę wszystkich roomId, z którymi użytkownik prowadził konwersację
   List<String> getChattedRoomIds() {
     final box = Hive.box<Map>('messages');
     final allMessages = box.values.toList();
@@ -92,5 +92,19 @@ class StorageService {
       }
     }
     return roomIds.toList();
+  }
+
+  /// Pobiera najwyższe znane MessageID pobrane z serwera
+  int getLastMessageId() {
+    final box = Hive.box<Map>('messages');
+    final allMessages = box.values.toList();
+    int maxId = 0;
+    for (var msg in allMessages) {
+      final msgId = msg['messageId'] as int?;
+      if (msgId != null && msgId > maxId) {
+        maxId = msgId;
+      }
+    }
+    return maxId;
   }
 }

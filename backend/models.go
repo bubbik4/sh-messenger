@@ -50,11 +50,14 @@ type WsEvent struct {
 	EncryptedContent string      `json:"encrypted_content,omitempty"`
 	SearchQuery      string      `json:"search_query,omitempty"`
 	Usernames        []string    `json:"usernames,omitempty"`
+	LastMessageID    int         `json:"last_message_id,omitempty"`
+	MessageID        int         `json:"message_id,omitempty"`
 	Users            []User      `json:"users,omitempty"`
 	Messages         []WsMessage `json:"messages,omitempty"`
 }
 
 type WsMessage struct {
+	MessageID        int    `json:"message_id"`
 	SenderUsername   string `json:"sender_username"`
 	SenderPublicKey  string `json:"sender_public_key,omitempty"`
 	EncryptedContent string `json:"encrypted_content"`

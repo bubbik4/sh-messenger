@@ -125,7 +125,8 @@ class WsService {
       }
     } else if (type == 'auth_success') {
       print('Autoryzacja udana, synchronizacja wiadomości...');
-      _sendJson({'type': 'sync_messages'});
+      final lastMsgId = _storageService.getLastMessageId();
+      _sendJson({'type': 'sync_messages', 'last_message_id': lastMsgId});
       getUsers();
     } else if (type == 'user_list' || type == 'specific_users_list' || type == 'search_results') {
       final usersList = data['users'] as List<dynamic>? ?? [];
@@ -151,6 +152,7 @@ class WsService {
           final senderUsername = msg['sender_username'];
           final encryptedContent = msg['encrypted_content'];
           final timestampStr = msg['timestamp'];
+          final messageId = msg['message_id'] as int? ?? 0;
           
           final senderPublicKeyFromMessage = msg['sender_public_key'];
           
@@ -167,9 +169,16 @@ class WsService {
                  roomId: senderUsername, 
                  senderId: senderUsername, 
                  plaintextMessage: decrypted, 
-                 timestamp: DateTime.parse(timestampStr)
+                 timestamp: DateTime.parse(timestampStr),
+                 messageId: messageId,
                );
-               print('Deszyfrowanie udane!');
+               print('Deszyfrowanie udane! Wysyłam ACK do serwera (msg_id: $messageId)');
+               if (messageId > 0) {
+                 _sendJson({
+                   'type': 'msg_ack',
+                   'message_id': messageId,
+                 });
+               }
              } catch (e) {
                print('Błąd deszyfrowania wiadomości: $e');
              }

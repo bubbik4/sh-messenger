@@ -36,6 +36,15 @@ func InitDB() error {
 	}
 
 	log.Println("Połączono z bazą PostgreSQL")
+	
+	// Uruchamiamy czyszczenie starych wiadomości raz dziennie
+	go func() {
+		for {
+			CleanupOldMessages()
+			time.Sleep(24 * time.Hour)
+		}
+	}()
+
 	return nil
 }
 
@@ -168,18 +177,19 @@ func SearchUser(username string) ([]User, error) {
 	return users, nil
 }
 
-func SaveMessage(senderID, receiverID int, content string) error {
-	_, err := DB.Exec(context.Background(), "INSERT INTO messages (sender_id, receiver_id, encrypted_content, encrypted_aes_key) VALUES ($1, $2, $3, '')", senderID, receiverID, content)
-	return err
+func SaveMessage(senderID, receiverID int, content string) (int, error) {
+	var id int
+	err := DB.QueryRow(context.Background(), "INSERT INTO messages (sender_id, receiver_id, encrypted_content, encrypted_aes_key) VALUES ($1, $2, $3, '') RETURNING id", senderID, receiverID, content).Scan(&id)
+	return id, err
 }
 
-func GetUndeliveredMessages(receiverID int) ([]WsMessage, error) {
+func GetMessagesSince(receiverID int, lastMessageID int) ([]WsMessage, error) {
 	rows, err := DB.Query(context.Background(), `
-		SELECT u.username, u.public_key, m.encrypted_content, m.created_at 
+		SELECT m.id, u.username, u.public_key, m.encrypted_content, m.created_at 
 		FROM messages m 
 		JOIN users u ON m.sender_id = u.id 
-		WHERE m.receiver_id = $1 AND m.is_delivered = false
-		ORDER BY m.created_at ASC`, receiverID)
+		WHERE m.receiver_id = $1 AND m.id > $2
+		ORDER BY m.id ASC`, receiverID, lastMessageID)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +199,7 @@ func GetUndeliveredMessages(receiverID int) ([]WsMessage, error) {
 	for rows.Next() {
 		var msg WsMessage
 		var t time.Time
-		if err := rows.Scan(&msg.SenderUsername, &msg.SenderPublicKey, &msg.EncryptedContent, &t); err != nil {
+		if err := rows.Scan(&msg.MessageID, &msg.SenderUsername, &msg.SenderPublicKey, &msg.EncryptedContent, &t); err != nil {
 			return nil, err
 		}
 		msg.Timestamp = t.Format(time.RFC3339)
@@ -198,9 +208,27 @@ func GetUndeliveredMessages(receiverID int) ([]WsMessage, error) {
 	return msgs, nil
 }
 
-func MarkMessagesAsDelivered(receiverID int) error {
-	_, err := DB.Exec(context.Background(), "UPDATE messages SET is_delivered = true WHERE receiver_id = $1 AND is_delivered = false", receiverID)
+func MarkMessageAsDelivered(messageID int) error {
+	_, err := DB.Exec(context.Background(), "UPDATE messages SET is_delivered = true WHERE id = $1", messageID)
 	return err
+}
+
+func IsMessageDelivered(messageID int) bool {
+	var isDelivered bool
+	err := DB.QueryRow(context.Background(), "SELECT is_delivered FROM messages WHERE id = $1", messageID).Scan(&isDelivered)
+	if err != nil {
+		return false
+	}
+	return isDelivered
+}
+
+func CleanupOldMessages() {
+	_, err := DB.Exec(context.Background(), "DELETE FROM messages WHERE created_at < NOW() - INTERVAL '90 days'")
+	if err != nil {
+		log.Printf("Błąd podczas czyszczenia starych wiadomości: %v", err)
+	} else {
+		log.Println("Zakończono cykliczne czyszczenie wiadomości (90 dni).")
+	}
 }
 
 func DeleteUser(username string) error {

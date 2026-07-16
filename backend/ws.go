@@ -106,10 +106,14 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		case "sync_messages":
 			user, _ := GetUserByUsername(client.Username)
-			msgs, err := GetUndeliveredMessages(user.ID)
+			msgs, err := GetMessagesSince(user.ID, event.LastMessageID)
 			if err == nil && len(msgs) > 0 {
 				client.WriteJSON(WsEvent{Type: "sync_messages", Messages: msgs})
-				MarkMessagesAsDelivered(user.ID)
+			}
+
+		case "msg_ack":
+			if event.MessageID > 0 {
+				MarkMessageAsDelivered(event.MessageID)
 			}
 
 		case "send_message":
@@ -120,20 +124,21 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			sender, _ := GetUserByUsername(client.Username)
 
-			// Zapis do bazy
-			err = SaveMessage(sender.ID, receiver.ID, event.EncryptedContent)
+			// Zapis do bazy i pobranie ID wiadomości
+			msgID, err := SaveMessage(sender.ID, receiver.ID, event.EncryptedContent)
 			if err != nil {
 				log.Printf("Błąd zapisu wiadomości: %v", err)
 				continue
 			}
 
-			// Próba wysłania na żywo
-			delivered := globalHub.SendToUser(receiver.Username, WsEvent{
+			// Próba wysłania na żywo przez WebSocket
+			globalHub.SendToUser(receiver.Username, WsEvent{
 				Type:             "new_message",
 				ReceiverUsername: sender.Username, // Kto wysłał (aby odbiorca wiedział)
 				EncryptedContent: event.EncryptedContent,
 				Messages: []WsMessage{
 					{
+						MessageID:        msgID,
 						SenderUsername:   sender.Username,
 						SenderPublicKey:  sender.PublicKey,
 						EncryptedContent: event.EncryptedContent,
@@ -142,12 +147,14 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				},
 			})
 
-			if delivered {
-				MarkMessagesAsDelivered(receiver.ID)
-			} else {
-				// Użytkownik jest offline, wyślij powiadomienie Push
-				sendPushNotification(receiver.Username, sender.Username)
-			}
+			// Wstrzymujemy push notification na 5 sekund w tle, czekając na Explicit ACK od klienta
+			go func(mID int, rUser string, sUser string) {
+				time.Sleep(5 * time.Second)
+				if !IsMessageDelivered(mID) {
+					log.Printf("Brak ACK dla wiadomości %d. Wysyłam powiadomienie Push do %s", mID, rUser)
+					sendPushNotification(rUser, sUser)
+				}
+			}(msgID, receiver.Username, sender.Username)
 		}
 	}
 
