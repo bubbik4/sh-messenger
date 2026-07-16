@@ -312,7 +312,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
               
               return Container(
                 width: double.infinity,
-                color: AppTheme.surfaceDark,
+                color: AppTheme.cardColor,
                 padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
