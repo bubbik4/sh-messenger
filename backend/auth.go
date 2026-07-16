@@ -140,6 +140,52 @@ func verifyJWT(tokenString string) (string, error) {
 	return claims.Username, nil
 }
 
+type TicketResponse struct {
+	Ticket string `json:"ticket"`
+}
+
+func handleWsTicket(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || len(authHeader) < 8 {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+	tokenString := authHeader[7:]
+
+	username, err := verifyJWT(tokenString)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	ticket, err := generateWSTicket(username)
+	if err != nil {
+		http.Error(w, "Error generating ticket", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(TicketResponse{Ticket: ticket})
+}
+
+func generateWSTicket(username string) (string, error) {
+	expirationTime := time.Now().Add(15 * time.Second) // Ticket ważny 15 sekund
+	claims := &Claims{
+		Username: username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtKey)
+}
+
 func handleUpdateVisibility(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

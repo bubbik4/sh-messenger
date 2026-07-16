@@ -26,6 +26,26 @@ class ApiService {
     return await _storage.read(key: _jwtKey);
   }
 
+  Future<String?> getWsTicket() async {
+    final token = await getToken();
+    if (token == null) return null;
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/ws-ticket'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['ticket'];
+      }
+    } catch (e) {
+      print('Błąd pobierania ticketu WS: $e');
+    }
+    return null;
+  }
+
   Future<String?> getUsername() async {
     return await _storage.read(key: _usernameKey);
   }

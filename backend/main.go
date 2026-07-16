@@ -58,6 +58,7 @@ func main() {
 	})
 
 	// Routing HTTP dla Zalogowanych
+	mux.HandleFunc("/api/ws-ticket", handleWsTicket)
 	mux.HandleFunc("/api/change_password", handleChangePassword)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

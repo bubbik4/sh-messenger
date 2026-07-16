@@ -36,8 +36,11 @@ class WsService {
   Timer? _pongTimeoutTimer;
 
   Future<void> connect() async {
-    final token = await _apiService.getToken();
-    if (token == null) return;
+    final ticket = await _apiService.getWsTicket();
+    if (ticket == null) {
+      print('Błąd: nie udało się pobrać WS Ticket');
+      return;
+    }
 
     try {
       _channel = connectWs(Uri.parse(wsUrl));
@@ -60,7 +63,7 @@ class WsService {
 
       _sendJson({
         'type': 'auth',
-        'token': token,
+        'token': ticket,
       });
 
       _pingTimer?.cancel();
