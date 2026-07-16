@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+bool get isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
 class FCMService {
   FirebaseMessaging? _firebaseMessaging;
@@ -10,13 +13,13 @@ class FCMService {
   final _storage = const FlutterSecureStorage();
 
   FCMService() {
-    if (!kIsWeb) {
+    if (isMobile) {
       _firebaseMessaging = FirebaseMessaging.instance;
     }
   }
 
   Future<void> initFCM() async {
-    if (kIsWeb || _firebaseMessaging == null) return;
+    if (!isMobile || _firebaseMessaging == null) return;
     
     // Prośba o uprawnienia (ważne na iOS i nowszych Androidach)
     NotificationSettings settings = await _firebaseMessaging!.requestPermission(

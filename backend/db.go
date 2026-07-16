@@ -159,8 +159,8 @@ func GetUsersByUsernames(usernames []string) ([]User, error) {
 }
 
 func SearchUser(username string) ([]User, error) {
-	// Exact match as requested
-	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key, is_admin, is_visible FROM users WHERE username = $1", username)
+	// Exact match as requested but case-insensitive
+	rows, err := DB.Query(context.Background(), "SELECT id, username, public_key, is_admin, is_visible FROM users WHERE username ILIKE $1", username)
 	if err != nil {
 		return nil, err
 	}

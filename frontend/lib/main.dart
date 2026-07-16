@@ -10,21 +10,25 @@ import 'screens/admin_login_screen.dart';
 import 'screens/admin_dashboard.dart';
 import 'services/storage_service.dart';
 
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+bool get isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Inicializujemy Firebase w izolacie tła
-  await Firebase.initializeApp();
-  debugPrint("Otrzymano wiadomość w tle: ${message.messageId}");
+  if (isMobile) {
+    await Firebase.initializeApp();
+    debugPrint("Otrzymano wiadomość w tle: ${message.messageId}");
+  }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  if (!kIsWeb) {
+  if (isMobile) {
     try {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
