@@ -11,7 +11,11 @@ import (
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
-		return origin == "https://chat.bubikit.pl"
+		// Zezwól na puste Origin (np. aplikacje mobilne Flutter)
+		if origin == "" {
+			return true
+		}
+		return origin == "https://chat.bubikit.pl" || origin == "http://localhost:59981"
 	},
 }
 

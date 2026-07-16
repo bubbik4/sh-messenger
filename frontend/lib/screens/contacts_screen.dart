@@ -328,7 +328,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                         Text(text, style: TextStyle(color: color, fontSize: 12)),
                       ],
                     ),
-                    const Text('v1.3.0', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    const Text('v1.3.0.1', style: TextStyle(color: Colors.white38, fontSize: 12)),
                   ],
                 ),
               );

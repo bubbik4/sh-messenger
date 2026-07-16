@@ -29,7 +29,7 @@ func main() {
 	corsMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			if origin != "https://chat.bubikit.pl" {
+			if origin != "" && origin != "https://chat.bubikit.pl" && origin != "http://localhost:59981" { // Opcjonalnie lokalny test flutter web
 				http.Error(w, "Zabroniony Origin", http.StatusForbidden)
 				return
 			}
