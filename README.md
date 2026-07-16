@@ -48,24 +48,4 @@ Komunikator wykorzystuje zasadę Zero-Knowledge dla danych tekstowych, a serwer 
 
 ---
 
-## Kompilacja i uruchomienie
 
-Osoby chcące przeprowadzić własny audyt lub modyfikacje mogą uruchomić środowisko lokalnie. Domyślnie skompilowany klient będzie łączyć się z domeną `chat.bubikit.pl`.
-
-```bash
-# Szybkie uruchomienie backendu
-cp .env.example .env
-# Należy uzupełnić plik .env (m.in. zmienną JWT_SECRET)
-docker-compose up -d
-
-# Budowa frontendu
-cd frontend
-flutter pub get
-flutter build apk --release
-```
-
----
-
-## Współpraca
-
-Zachęcamy do weryfikacji i analizy kodu. Zgłoszenia luk w zabezpieczeniach oraz optymalizacji kodu mogą być tworzone poprzez standardowy mechanizm Issues oraz Pull Requestów.
